@@ -68,7 +68,7 @@ def forward(node: Node, x: np.ndarray, **kwargs) -> np.ndarray:
     print("Output Phase: " + str(phase))
 
     # Update state with phase
-    return np.array([phase + node.state()[0]])
+    return np.array([phase])
 
 
 def initialize(node: Node, x=None, y=None, initial_values=None, *args, **kwargs):
