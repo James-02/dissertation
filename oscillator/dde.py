@@ -1,7 +1,7 @@
 import numpy as np
 import scipy
 
-from utils import prof_pulse, prof_cos
+from .utils import prof_pulse
 
 def ddeint(func, y0, t, tau, args=(), y0_args=(), n_time_points_per_step=None):
     """
@@ -88,6 +88,9 @@ def ddeint(func, y0, t, tau, args=(), y0_args=(), n_time_points_per_step=None):
         y_return[:, i] = scipy.interpolate.splev(t, tck)
 
     return y_return
+
+def simple_oscillator(x, t, x_past, beta, n, tau):
+    return beta / (1 + x_past(t-tau)**n) - x
 
 def dde_system(Y, t, Y_past, params):
     """
