@@ -34,8 +34,8 @@ def compute_phase(signal_1, signal_2, period, dt):
     lag = lags[peaks[0]]
 
     # Calculate phase difference
-    phase_diff = (360 * lag / period * dt) % 360
+    phase_diff = ((2 * np.pi) * lag / period * dt) % (2 * np.pi)
 
-    # Adjust if greater than 180 degrees
-    return min(phase_diff, 360 - phase_diff)
+    # Adjust if greater than pi (3.14 radians or 180 degrees)
+    return min(phase_diff, (2 * np.pi) - phase_diff)
     
