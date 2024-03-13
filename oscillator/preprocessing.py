@@ -1,66 +1,168 @@
 import numpy as np
 import pandas as pd
 
-DATA_PATH = 'data/'
+# Define global constants
+DATA_DIR = 'data/'
+DEFAULT_ROWS = 1000
 
-def load_mnist():
-    data = np.load(DATA_PATH + 'mnist.npz')
-    # Split out testing and training sets into inputs and targets
-    return data['x_train'][:5000], data['y_train'][:5000], data['x_test'][:5000], data['y_test'][:5000]
+def load_ecg(rows=DEFAULT_ROWS, repeat_targets=False, encode_labels=True, normalise=True, class_size=None):
+    """
+    Load the ECG dataset with optional row limitation.
 
-def load_ecg(rows=100000):
-    train_df = pd.read_csv(DATA_PATH + "mit-bih/mitbih_train.csv", nrows=rows, header=None)
-    test_df = pd.read_csv(DATA_PATH + "mit-bih/mitbih_test.csv", nrows=rows, header=None)
+    Parameters:
+        rows (int, optional): Number of rows to load. Defaults to DEFAULT_ROWS.
+        repeat_targets (bool, optional): Whether to repeat each Y value for the training and testing set 
+                                         to the size of the relative X. Defaults to False.
+        encode_labels (bool, optional): Whether to encode labels using one-hot encoding. Defaults to True.
+        normalise (bool, optional): Whether to normalize inputs to phases. Defaults to True.
 
-    train_df = _sample_data(train_df)
-    test_df = _sample_data(test_df)
+    Returns:
+        tuple: Tuple containing X_train, Y_train, X_test, Y_test.
+    """
+    # Load the dataset
+    train_df = pd.read_csv(DATA_DIR + "mit-bih/mitbih_train.csv", header=None)
+    test_df = pd.read_csv(DATA_DIR + "mit-bih/mitbih_test.csv", header=None)
 
-    X_train = [np.array(row) for row in train_df.iloc[:, :-1].values]
-    Y_train = [np.array([label]) for label in train_df.iloc[:, -1].values.astype(int)]
+    # Sample data to balance dataset
+    train_df = _sample_data(train_df, class_size)
+    test_df = _sample_data(test_df, class_size)
 
-    X_test = [np.array(row) for row in test_df.iloc[:, :-1].values]
-    Y_test = [np.array([label]) for label in test_df.iloc[:, -1].values.astype(int)]
+    # Extract features and labels
+    X_train = train_df.iloc[:, :-1].values
+    Y_train = train_df.iloc[:, -1].values.astype(int)
+    X_test = test_df.iloc[:, :-1].values
+    Y_test = test_df.iloc[:, -1].values.astype(int)
 
-    X_train = [array.reshape(-1, 1) for array in _normalise_to_phases(X_train)]
-    X_test = [array.reshape(-1, 1) for array in _normalise_to_phases(X_test)]
-
-    num_classes = max(max(targets) for targets in Y_train) + 1
-
-    # Perform normalization for each target array using list comprehension
-    Y_train = [(np.eye(num_classes)[targets] / np.max(np.eye(num_classes)[targets], axis=1, keepdims=True)) for targets in Y_train]
-    Y_test = [(np.eye(num_classes)[targets] / np.max(np.eye(num_classes)[targets], axis=1, keepdims=True)) for targets in Y_test]
+    # Preprocess data
+    X_train, Y_train = preprocess_data(X_train, Y_train, encode_labels, normalise, repeat_targets)
+    X_test, Y_test = preprocess_data(X_test, Y_test, encode_labels, normalise, repeat_targets)
 
     return X_train, Y_train, X_test, Y_test
 
-def _sample_data(data):
+def preprocess_data(X, Y, encode_labels=True, normalise=True, repeat_targets=False):
+    """
+    Preprocess data for training/testing.
+
+    Parameters:
+        X (numpy.ndarray): Features array.
+        Y (numpy.ndarray): Labels array.
+        encode_labels (bool, optional): Whether to encode labels using one-hot encoding. Defaults to True.
+        normalise (bool, optional): Whether to normalize inputs to phases. Defaults to True.
+        repeat_targets (bool, optional): Whether to repeat each Y value to match the size of the relative X. Defaults to False.
+
+    Returns:
+        tuple: Tuple containing preprocessed features and labels.
+    """
+
+    # Normalise inputs into phases
+    if normalise:
+        X = _normalise_to_phases(X)
+
+    # Encode labels
+    if encode_labels:
+        Y = _encode_labels(Y)
+
+    # Repeat targets if necessary
+    if repeat_targets:
+        Y = _repeat_targets(X, Y)
+    
+    X = _reshape_X(X)
+    Y = _reshape_Y(Y)
+
+    return X, Y
+
+def _repeat_targets(X, Y):
+    """
+    Repeat each Y value for the dataset to the size of the relative X.
+
+    Parameters:
+        X (numpy.ndarray): Features array.
+        Y (numpy.ndarray): Targets array.
+
+    Returns:
+        numpy.ndarray: Repeated targets array.
+    """
+    return np.repeat(Y, X.shape[0], axis=0)
+
+def _sample_data(data, class_size=None):
+    """
+    Sample data to balance classes.
+    if the class_size is not set, the size of the smallest class is used.
+
+    Parameters:
+        data (pd.DataFrame): DataFrame containing the data.
+        class_size (int): Size of classes
+
+    Returns:
+        pd.DataFrame: Sampled DataFrame.
+    """
     # Determine the size of the smallest class
-    min_class_size = data.iloc[:, -1].value_counts().min()
+    class_size = data.iloc[:, -1].value_counts().min() if not class_size else class_size
 
-    # Group the DataFrame by the target column
-    grouped = data.groupby(data.columns[-1])
-
-    # Initialize an empty list to store the sampled DataFrames
-    sampled_dfs = []
-
-    # Iterate over each group, and sample min_class_size records from each group
-    for _, group in grouped:
-        sampled_dfs.append(group.sample(n=min_class_size))
+    # Sample each class to balance data
+    sampled_dfs = [group.sample(n=class_size) for _, group in data.groupby(data.columns[-1])]
 
     # Concatenate the sampled DataFrames into a single DataFrame
-    subset_df = pd.concat(sampled_dfs)
+    return pd.concat(sampled_dfs)
 
-    # Reset the index of the subset DataFrame
-    subset_df.reset_index(drop=True, inplace=True)
+def _encode_labels(Y):
+    """
+    Encode labels using one-hot encoding.
 
-    return subset_df
+    Parameters:
+        Y (numpy.ndarray): Labels array.
 
-def _normalise_to_phases(values):
+    Returns:
+        numpy.ndarray: One-hot encoded labels array.
+    """
+    return np.eye(np.max(Y) + 1)[Y]
+
+def _normalise_to_phases(X):
+    """
+    Normalize values to phases.
+
+    Parameters:
+        X (numpy.ndarray): Array of values.
+
+    Returns:
+        numpy.ndarray: Normalized array.
+    """
     # Find the minimum and maximum values along each row
-    min_values = np.min(values, axis=1)[:, np.newaxis]
-    max_values = np.max(values, axis=1)[:, np.newaxis]
+    min_values = np.min(X)
+    max_values = np.max(X)
 
-    # Normalize each row of values to be between 0 and 1
-    normalized_values = (values - min_values) / (max_values - min_values)
+    # Normalize values to be between 0 and 1 and multiply by pi to calculate the phase in radians
+    return (X - min_values) / (max_values - min_values) * np.pi
 
-    # Map normalized values to the range [0, 180] (representing degrees)
-    return normalized_values * 180
+def _reshape_X(X):
+    """
+    Reshapes each array in the input list of arrays to have a shape of (timesteps, features).
+    
+    Parameters:
+    -----------
+    X : list of numpy.ndarray
+        The list of input arrays to be reshaped.
+        
+    Returns:
+    --------
+    list of numpy.ndarray
+        The list of reshaped arrays with shape (timesteps, features).
+    """
+    return [array.reshape(-1, 1) for array in X]
+
+
+def _reshape_Y(Y):
+    """
+    Reshapes each array in the input list of arrays to have a shape of (timesteps, classes)
+    
+    Parameters:
+    -----------
+    Y : list of numpy.ndarray
+        The list of labels arrays to be reshaped
+        
+    Returns:
+    --------
+    list of numpy.ndarray
+        The list of reshaped arrays with shape (timesteps, classes).
+    """
+    return [array.reshape(1, len(array)) for array in Y]
