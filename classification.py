@@ -16,10 +16,13 @@ rpy.set_seed(SEED)
 def classify(use_oscillator=True):
     # Load dataset
     # X_train, Y_train, X_test, Y_test = japanese_vowels()
-    X_train, Y_train, X_test, Y_test = load_ecg()
+    X_train, Y_train, X_test, Y_test = load_ecg(class_size=2)
 
     # Initialise genetic oscillator node
     oscillator = Oscillator(name="genetic-oscillator-1")
+
+    # Example of updating the node's hyperparameters
+    oscillator.hypers.update({'period': 67})
 
     # Initialise other nodes
     reservoir = Reservoir(500, sr=0.9, lr=0.1)
@@ -53,4 +56,4 @@ def classify(use_oscillator=True):
     print("Accuracy: ", f"{score * 100:.3f} %")
 
 if __name__ == "__main__":
-    classify()
+    classify(use_oscillator=True)
