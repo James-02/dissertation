@@ -1,5 +1,5 @@
 from reservoirpy.nodes import Reservoir, Ridge, Input
-from reservoirpy.datasets import japanese_vowels
+# from reservoirpy.datasets import japanese_vowels
 from sklearn.metrics import accuracy_score
 
 from oscillator.preprocessing import load_ecg
@@ -7,6 +7,8 @@ from oscillator.oscillator import Oscillator
 
 import numpy as np
 import reservoirpy as rpy
+
+# import matplotlib.pyplot as plt
 
 SEED = 1337
 
@@ -16,13 +18,13 @@ rpy.set_seed(SEED)
 def classify(use_oscillator=True):
     # Load dataset
     # X_train, Y_train, X_test, Y_test = japanese_vowels()
-    X_train, Y_train, X_test, Y_test = load_ecg(class_size=2)
+    X_train, Y_train, X_test, Y_test = load_ecg(class_size=10)
 
     # Initialise genetic oscillator node
     oscillator = Oscillator(name="genetic-oscillator-1")
 
     # Example of updating the node's hyperparameters
-    oscillator.hypers.update({'period': 67})
+    oscillator.hypers.update({'period': 25})
 
     # Initialise other nodes
     reservoir = Reservoir(500, sr=0.9, lr=0.1)
@@ -34,7 +36,8 @@ def classify(use_oscillator=True):
 
     print("Training States")
     states_train = []
-    for x in X_train:
+    for i, x in enumerate(X_train):
+        print(i)
         states = reservoir.run(x, reset=True)
         states_train.append(states[-1, np.newaxis])
 

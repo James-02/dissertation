@@ -1,4 +1,4 @@
-from dde import ddeint, dde_system
+from oscillator.dde import ddeint, dde_system
 
 import matplotlib.pyplot as plt
 
@@ -9,7 +9,7 @@ def run_danino():
     params = {
         'CA': 1, 'CI': 4, 'del_': 1e-3, 'alpha': 2500, 'k': 1, 'k1': 0.1, 'b': 0.06, 'gammaA': 15,
         'gammaI': 24, 'gammaH': 0.01, 'f': 0.3, 'g': 0.01, 'd': 0.7, 'd0': 0.88, 'D': 2.5, 'mu': 0.6,
-        'delay': 10, 'n': 10, 'phase': 0, 'coupling': 0.01, 'period': 67, 'time': np.linspace(0, 1, 2),
+        'delay': 10, 'n': 10, 'phase': 0, 'coupling': 0.01, 'period': 25, 'time': np.linspace(0, 1, 2),
         'initial_conditions': [0, 100, 0, 0]
     }
 

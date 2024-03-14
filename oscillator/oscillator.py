@@ -3,10 +3,11 @@
 # Copyright: Xavier Hinaut (2018) <xavier.hinaut@inria.fr>
 from functools import partial
 
+import matplotlib.pyplot as plt
+
 import numpy as np
 
 from .dde import ddeint, dde_system
-from .utils import compute_period, compute_phase, prof_cos
 
 from reservoirpy.node import Node
 
@@ -29,46 +30,27 @@ DEFAULT_HYPERS = {
     'D': 2.5, 
     'mu': 0.6,
     'delay': 10, 
-    'n': 1, 
-    'period': 67,
+    'n': 10, 
+    'period': 25,
     'coupling': 0.007,
-    'time': np.linspace(0, 240, 1000),
+    'time': np.linspace(0, 1, 2),
     'initial_conditions': [0, 100, 0, 0]
 }
 
 def forward(node: Node, x: np.ndarray, **kwargs) -> np.ndarray:
-    # Normalise data to 0-180 degree phases and use as input phase
     input_phase = x[0][0]  # first feature (ECG only has one feature)
 
-    # Save original coupling parameter for later use (will be overwritten)
-    coupling = node.hypers['coupling']
-
-    # If period is not set, calculate it with 0 coupling
-    if node.hypers['period'] == 0:
-        node.hypers.update({'period': 1, 'phase': 0, 'coupling': 0})
-        # Initial run with no coupling to compute the period
-        results = ddeint(dde_system, lambda t: node.initial_values, node.hypers['time'], node.hypers['delay'], args=(node.hypers,))
-        A_signal = [row[0] for row in results]
-
-        # Calculate the period
-        node.hypers['period'] = compute_period(A_signal, np.mean(np.diff(node.hypers['time'])))
-
     # Update the parameters to add coupling and input phase
-    node.hypers.update({'phase': input_phase, 'coupling': coupling})
-
-    # Generate a reference signal at phase 0
-    reference_signal = prof_cos(node.hypers['time'], node.hypers['period'], 0)
+    node.hypers.update({'phase': input_phase})
 
     # Solve the delayed differential equations to get the derivatives of the system variables
-    results = ddeint(dde_system, lambda t: node.initial_values, node.hypers['time'], node.hypers['delay'], args=(node.hypers,))
-    A_signal = [row[0] for row in results]
+    results = ddeint(dde_system, lambda _: node.initial_values, node.hypers['time'], node.hypers['delay'], args=(node.hypers,))
 
-    # Calculate the phase between the reference signal and the A signal
-    phase = compute_phase(A_signal, reference_signal, node.hypers['period'], np.mean(np.diff(node.hypers['time'])))
-    # print("Output Phase: " + str(phase))
+    # reset the initial values to be the final row of derivatives
+    node.initial_values = results[-1]
 
-    # Update state with phase
-    return np.array([phase])
+    # Update state with the mean of the resulting A variable
+    return np.mean(results, axis=0)[0]
 
 
 def initialize(node: Node, x=None, y=None, initial_values=None, *args, **kwargs):
