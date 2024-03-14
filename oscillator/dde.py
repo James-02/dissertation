@@ -1,7 +1,7 @@
 import numpy as np
 import scipy
 
-from .utils import prof_pulse, prof_cos
+from utils import prof_pulse, prof_cos
 
 def ddeint(func, y0, t, tau, args=(), y0_args=(), n_time_points_per_step=None):
     """
