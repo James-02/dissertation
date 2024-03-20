@@ -1,7 +1,6 @@
 import numpy as np
 import scipy
 
-from utils import prof_pulse, prof_cos
 
 def ddeint(func, y0, t, tau, args=(), y0_args=(), n_time_points_per_step=None):
     """
@@ -101,7 +100,7 @@ def dde_system(Y, t, Y_past, params):
     P = (params['del_'] + params['alpha'] * Hlag**2) / (1 + params['k1'] * Hlag**2)
 
     # external input signal
-    Hetot = He + params['coupling'] * prof_cos(t, params['period'] / params['n'], params['phase'] * params['n'])
+    Hetot = He + params['coupling'] * params['input']
 
     dAdt = params['CA'] * (1 - (params['d']/params['d0'])**4) * P - params['gammaA'] * A / (1 + params['f'] * (A + I))
     dIdt = params['CI'] * (1 - (params['d']/params['d0'])**4) * P - params['gammaI'] * I / (1 + params['f'] * (A + I))
