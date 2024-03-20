@@ -47,7 +47,7 @@ def preprocess_data(X, Y, encode_labels=True, normalise=True, repeat_targets=Fal
         X (numpy.ndarray): Features array.
         Y (numpy.ndarray): Labels array.
         encode_labels (bool, optional): Whether to encode labels using one-hot encoding. Defaults to True.
-        normalise (bool, optional): Whether to normalize inputs to phases. Defaults to True.
+        normalise (bool, optional): Whether to normalize inputs. Defaults to True.
         repeat_targets (bool, optional): Whether to repeat each Y value to match the size of the relative X. Defaults to False.
 
     Returns:
@@ -56,7 +56,7 @@ def preprocess_data(X, Y, encode_labels=True, normalise=True, repeat_targets=Fal
 
     # Normalise inputs into phases
     if normalise:
-        X = _normalise_to_phases(X)
+        X = _normalise(X)
 
     # Encode labels
     if encode_labels:
@@ -117,9 +117,9 @@ def _encode_labels(Y):
     """
     return np.eye(np.max(Y) + 1)[Y]
 
-def _normalise_to_phases(X):
+def _normalise(X):
     """
-    Normalize values to phases.
+    Normalize values between 0-1.
 
     Parameters:
         X (numpy.ndarray): Array of values.
@@ -131,8 +131,8 @@ def _normalise_to_phases(X):
     min_values = np.min(X)
     max_values = np.max(X)
 
-    # Normalize values to be between 0 and 1 and multiply by pi to calculate the phase in radians
-    return (X - min_values) / (max_values - min_values) * np.pi
+    # Normalize values to be between 0 and 1
+    return (X - min_values) / (max_values - min_values)
 
 def _reshape_X(X):
     """
