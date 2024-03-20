@@ -3,8 +3,6 @@
 # Copyright: Xavier Hinaut (2018) <xavier.hinaut@inria.fr>
 from functools import partial
 
-import matplotlib.pyplot as plt
-
 import numpy as np
 
 from .dde import ddeint, dde_system
@@ -29,32 +27,34 @@ DEFAULT_HYPERS = {
     'd0': 0.88, 
     'D': 2.5, 
     'mu': 0.6,
-    'delay': 10, 
-    'n': 10, 
-    'period': 25,
-    'coupling': 0.007,
+    'delay': 10,
+    'coupling': 5e-4,
     'time': np.linspace(0, 1, 2),
     'initial_conditions': [0, 100, 0, 0]
 }
 
 def forward(node: Node, x: np.ndarray, **kwargs) -> np.ndarray:
-    input_phase = x[0][0]  # first feature (ECG only has one feature)
+    # Reset states if we have completed a full timeseries (+1 for initial conditions)
+    if len(node.states) - 1 == node.timesteps:
+        node.reset_states()
 
-    # Update the parameters to add coupling and input phase
-    node.hypers.update({'phase': input_phase})
+    input_val = x[0][0]  # first feature (ECG only has one feature)
+
+    # Update the parameters to add the input signal
+    node.hypers.update({'input': input_val})
 
     # Solve the delayed differential equations to get the derivatives of the system variables
-    results = ddeint(dde_system, lambda _: node.initial_values, node.hypers['time'], node.hypers['delay'], args=(node.hypers,))
+    results = ddeint(dde_system, node.history, node.hypers['time'], node.hypers['delay'], args=(node.hypers,))
 
-    # reset the initial values to be the final row of derivatives
-    node.initial_values = results[-1]
+    # update history with results
+    node.states = np.vstack((node.states, results[-1]))
 
-    # Update state with the mean of the resulting A variable
-    return np.mean(results, axis=0)[0]
+    # return state as results from single timestep run
+    return results[-1]
 
 
 def initialize(node: Node, x=None, y=None, initial_values=None, *args, **kwargs):
-    print("Node: " + node.name + " initialised")
+    print("Initialised Node: " + node.name)
     if node.input_dim is not None:
         dim = node.input_dim
     else:
@@ -63,7 +63,9 @@ def initialize(node: Node, x=None, y=None, initial_values=None, *args, **kwargs)
 
     # set input dimensions
     node.set_input_dim(dim)
-    node.set_output_dim(dim)
+
+    # set output dimension to be the 4 dde system variables
+    node.set_output_dim(len(node.hypers['initial_conditions']))
 
     # Set the node's initial values
     if initial_values:
@@ -74,43 +76,12 @@ def initialize(node: Node, x=None, y=None, initial_values=None, *args, **kwargs)
     else:
         node.initial_values = DEFAULT_HYPERS['initial_conditions']
 
-    print("Num. Input Features: " + str(node.input_dim))
-    print("Initial Values: " + str(node.initial_values))
-    print("\n")
-
 class Oscillator(Node):
-    """
-    Genetic oscillator node defined by a delayed differential equation.
-
-    :param initial_values: array of length 4, defaults to [0, 100, 0, 0].
-        Initial conditions for the dde system's variables
-    :param input_dim: int, optional
-        Input dimension. Can be inferred at first call.
-    :param dtype: Numpy dtype, defaults to `None`.
-        Numerical type for node parameters.
-    :param **kwargs: Additional keyword arguments to pass to the parent class.
-
-    Attributes
-    ----------
-    hypers : dict
-        Default immutable hyperparameters for the oscillator.
-    params : dict
-        Additional mutable parameters for the oscillator.
-    forward : function
-        Function to propagate node state using input.
-    initializer : function
-        Function to initialize the node and it's parameters.
-    input_dim : int
-        Input dimension of the data.
-    output_dim : int
-        Output dimension of the data.
-    """
-
     def __init__(
         self,
+        timesteps,
         input_dim=None,
         initial_values=None,
-        dtype=None,
         name=None,
         **kwargs,
     ):
@@ -124,3 +95,19 @@ class Oscillator(Node):
             name=name,
             **kwargs,
         )
+
+        # initialise node's states
+        self.timesteps = timesteps
+        self.reset_states()
+    
+    def reset_states(self):
+        self.states = np.array(self.hypers['initial_conditions']).reshape(1, -1)
+    
+    def history(self, t):
+        num_timesteps, num_features = self.states.shape
+
+        if abs(t) > num_timesteps:
+            return self.states[0]
+
+        indices = np.arange(-num_timesteps + 1, 1)
+        return np.array([np.interp(t, indices, self.states[:, i]) for i in range(num_features)])
