@@ -62,13 +62,13 @@ def preprocess_data(X, Y, encode_labels=True, normalise=True, repeat_targets=Fal
     if encode_labels:
         Y = _encode_labels(Y)
 
+    Y = _reshape_Y(Y)
+    X = _reshape_X(X)
+
     # Repeat targets if necessary
     if repeat_targets:
         Y = _repeat_targets(X, Y)
     
-    X = _reshape_X(X)
-    Y = _reshape_Y(Y)
-
     return X, Y
 
 def _repeat_targets(X, Y):
@@ -82,7 +82,7 @@ def _repeat_targets(X, Y):
     Returns:
         numpy.ndarray: Repeated targets array.
     """
-    return np.repeat(Y, X.shape[0], axis=0)
+    return [np.repeat(array, X[0].shape[0], axis=0) for array in Y]    
 
 def _sample_data(data, class_size=None):
     """
