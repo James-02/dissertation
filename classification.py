@@ -2,7 +2,7 @@ from reservoirpy.nodes import Reservoir, Ridge, Input
 from reservoirpy.datasets import japanese_vowels
 from sklearn.metrics import accuracy_score
 
-from preprocessing import load_ecg
+from preprocessing import load_ecg_data
 from oscillator.oscillator import Oscillator
 
 import numpy as np
@@ -13,11 +13,10 @@ from visualisation import *
 
 SEED = 1337
 
-rpy.verbosity(0)
 rpy.set_seed(SEED)
 
 def transduction(use_oscillator=True):
-    X_train, Y_train, X_test, Y_test = load_ecg(class_size=10, repeat_targets=True)
+    X_train, Y_train, X_test, Y_test = load_ecg_data(class_size=10, repeat_targets=True)
     reservoir = Oscillator(timesteps=X_train[0].shape[0], name="genetic-oscillator-1")
 
     if not use_oscillator:
@@ -43,7 +42,7 @@ def classification(use_oscillator=True):
     # X_train, Y_train, X_test, Y_test = japanese_vowels()
     # X_train =  [np.sin(np.linspace(0, 8 * np.pi, 187)).reshape(-1, 1)] * 2
 
-    X_train, Y_train, X_test, Y_test = load_ecg(class_size=100)
+    X_train, Y_train, X_test, Y_test = load_ecg_data(class_size=10)
     timespan = np.linspace(0, 187, 187)
 
     # Initialise genetic oscillator node
