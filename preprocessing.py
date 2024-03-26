@@ -1,168 +1,199 @@
 import numpy as np
 import pandas as pd
+import os
 
-# Define global constants
-DATA_DIR = 'data/'
-DEFAULT_ROWS = 1000
+DATA_DIR = 'data/ecg/'
 
-def load_ecg(rows=DEFAULT_ROWS, repeat_targets=False, encode_labels=True, normalise=True, class_size=None):
+def load_ecg_data(repeat_targets=False, encode_labels=True, normalise=True, class_size=None):
     """
-    Load the ECG dataset with optional row limitation.
+    Load ECG data and preprocess it.
 
     Parameters:
-        rows (int, optional): Number of rows to load. Defaults to DEFAULT_ROWS.
-        repeat_targets (bool, optional): Whether to repeat each Y value for the training and testing set 
-                                         to the size of the relative X. Defaults to False.
-        encode_labels (bool, optional): Whether to encode labels using one-hot encoding. Defaults to True.
-        normalise (bool, optional): Whether to normalize inputs to phases. Defaults to True.
+        repeat_targets (bool): Whether to repeat targets.
+        encode_labels (bool): Whether to encode labels.
+        normalise (bool): Whether to normalise data.
+        class_size (int): Size of each class in the subset.
 
     Returns:
-        tuple: Tuple containing X_train, Y_train, X_test, Y_test.
+        tuple: A tuple containing preprocessed training and testing data (X_train, Y_train, X_test, Y_test).
     """
-    # Load the dataset
-    train_df = pd.read_csv(DATA_DIR + "mit-bih/mitbih_train.csv", header=None)
-    test_df = pd.read_csv(DATA_DIR + "mit-bih/mitbih_test.csv", header=None)
+    if not all(os.path.exists(os.path.join(DATA_DIR, file)) for file in ["X_train.npy", "Y_train.npy", "X_test.npy", "Y_test.npy"]):
+        X_train, Y_train, X_test, Y_test = _load_ecg_data()
 
-    # Sample data to balance dataset
-    train_df = _sample_data(train_df, class_size)
-    test_df = _sample_data(test_df, class_size)
+    X_train, Y_train = _preprocess_data(X_train, Y_train, encode_labels, normalise, repeat_targets, class_size)
+    X_test, Y_test = _preprocess_data(X_test, Y_test, encode_labels, normalise, repeat_targets, class_size)
 
-    # Extract features and labels
+    return X_train, Y_train, X_test, Y_test
+
+def _save_data(X_train, Y_train, X_test, Y_test):
+    """
+    Save the training and testing data to disk.
+
+    Parameters:
+        X_train (numpy.ndarray): Training data features.
+        Y_train (numpy.ndarray): Training data labels.
+        X_test (numpy.ndarray): Testing data features.
+        Y_test (numpy.ndarray): Testing data labels.
+    """
+    np.save(os.path.join(DATA_DIR, "ecg_X_train.npy"), X_train)
+    np.save(os.path.join(DATA_DIR, "ecg_Y_train.npy"), Y_train)
+    np.save(os.path.join(DATA_DIR, "ecg_X_test.npy"), X_test)
+    np.save(os.path.join(DATA_DIR, "ecg_Y_test.npy"), Y_test)
+
+def _preprocess_data(X, Y, encode_labels=True, normalise=True, repeat_targets=False, class_size=None):
+    """
+    Preprocess input features and labels.
+
+    Parameters:
+        X (numpy.ndarray): Input features.
+        Y (numpy.ndarray): Input labels.
+        encode_labels (bool): Whether to encode labels.
+        normalise (bool): Whether to normalise data.
+        repeat_targets (bool): Whether to repeat targets.
+        class_size (int): Size of each class in the subset.
+
+    Returns:
+        tuple: A tuple containing preprocessed input features and labels (X, Y).
+    """
+    if normalise:
+        X = _normalise(X)
+
+    if encode_labels:
+        Y = _encode_labels(Y)
+
+    if repeat_targets:
+        Y = _repeat_targets(X, Y)
+
+    if class_size:
+        X, Y = _get_subset(X, Y, class_size)
+    
+    Y = _reshape_Y(Y)
+    X = _reshape_X(X)
+    
+    return X, Y
+
+def _load_ecg_data():
+    """
+    Load ECG data from CSV files.
+
+    Returns:
+        tuple: A tuple containing raw training and testing data (X_train, Y_train, X_test, Y_test).
+    """
+    train_df = pd.read_csv(os.path.join(DATA_DIR, "ecg_train.csv"), header=None)
+    test_df = pd.read_csv(os.path.join(DATA_DIR, "ecg_test.csv"), header=None)
+    
+    train_df = _balance_dataset(train_df)
+    test_df = _balance_dataset(test_df)
+
     X_train = train_df.iloc[:, :-1].values
     Y_train = train_df.iloc[:, -1].values.astype(int)
     X_test = test_df.iloc[:, :-1].values
     Y_test = test_df.iloc[:, -1].values.astype(int)
 
-    # Preprocess data
-    X_train, Y_train = preprocess_data(X_train, Y_train, encode_labels, normalise, repeat_targets)
-    X_test, Y_test = preprocess_data(X_test, Y_test, encode_labels, normalise, repeat_targets)
+    _save_data(X_train, Y_train, X_test, Y_test)
 
     return X_train, Y_train, X_test, Y_test
 
-def preprocess_data(X, Y, encode_labels=True, normalise=True, repeat_targets=False):
+def _get_subset(X, Y, class_size):
     """
-    Preprocess data for training/testing.
+    Get a subset of data with balanced classes.
 
     Parameters:
-        X (numpy.ndarray): Features array.
-        Y (numpy.ndarray): Labels array.
-        encode_labels (bool, optional): Whether to encode labels using one-hot encoding. Defaults to True.
-        normalise (bool, optional): Whether to normalize inputs. Defaults to True.
-        repeat_targets (bool, optional): Whether to repeat each Y value to match the size of the relative X. Defaults to False.
+        X (numpy.ndarray): Input features.
+        Y (numpy.ndarray): Input labels.
+        class_size (int): Size of each class in the subset.
 
     Returns:
-        tuple: Tuple containing preprocessed features and labels.
+        tuple: A tuple containing subset of input features and labels (X_subset, Y_subset).
     """
-
-    # Normalise inputs into phases
-    if normalise:
-        X = _normalise(X)
-
-    # Encode labels
-    if encode_labels:
-        Y = _encode_labels(Y)
-
-    Y = _reshape_Y(Y)
-    X = _reshape_X(X)
-
-    # Repeat targets if necessary
-    if repeat_targets:
-        Y = _repeat_targets(X, Y)
+    class_counts = pd.Series(Y.flatten()).value_counts()
+    min_class_count = class_counts.min()
+    class_size = min(class_size, min_class_count)
     
-    return X, Y
+    sampled_indices = []
+    
+    for label, _ in class_counts.items():
+        indices = np.where(Y == label)[0]
+        np.random.shuffle(indices)
+        sampled_indices.extend(indices[:class_size])
+    
+    X_subset = X[sampled_indices]
+    Y_subset = Y[sampled_indices]
+    
+    return X_subset, Y_subset
 
-def _repeat_targets(X, Y):
+def _balance_dataset(data):
     """
-    Repeat each Y value for the dataset to the size of the relative X.
+    Sample data to balanced classes.
 
     Parameters:
-        X (numpy.ndarray): Features array.
-        Y (numpy.ndarray): Targets array.
+        data (pd.DataFrame): Input data.
 
     Returns:
-        numpy.ndarray: Repeated targets array.
+        pd.DataFrame: Sampled data.
     """
-    return [np.repeat(array, X[0].shape[0], axis=0) for array in Y]    
-
-def _sample_data(data, class_size=None):
-    """
-    Sample data to balance classes.
-    if the class_size is not set, the size of the smallest class is used.
-
-    Parameters:
-        data (pd.DataFrame): DataFrame containing the data.
-        class_size (int): Size of classes
-
-    Returns:
-        pd.DataFrame: Sampled DataFrame.
-    """
-    # Determine the size of the smallest class
-    class_size = data.iloc[:, -1].value_counts().min() if not class_size else class_size
-
-    # Sample each class to balance data
-    sampled_dfs = [group.sample(n=class_size) for _, group in data.groupby(data.columns[-1])]
-
-    # Concatenate the sampled DataFrames into a single DataFrame
-    return pd.concat(sampled_dfs)
+    class_size = data.iloc[:, -1].value_counts().min()
+    return data.groupby(data.columns[-1]).apply(lambda x: x.sample(n=class_size))
 
 def _encode_labels(Y):
     """
     Encode labels using one-hot encoding.
 
     Parameters:
-        Y (numpy.ndarray): Labels array.
+        Y (numpy.ndarray): Input labels.
 
     Returns:
-        numpy.ndarray: One-hot encoded labels array.
+        numpy.ndarray: Encoded labels.
     """
     return np.eye(np.max(Y) + 1)[Y]
 
 def _normalise(X):
     """
-    Normalize values between 0-1.
+    Normalize input features.
 
     Parameters:
-        X (numpy.ndarray): Array of values.
+        X (numpy.ndarray): Input features.
 
     Returns:
-        numpy.ndarray: Normalized array.
+        numpy.ndarray: Normalized input features.
     """
-    # Find the minimum and maximum values along each row
-    min_values = np.min(X)
-    max_values = np.max(X)
-
-    # Normalize values to be between 0 and 1
+    min_values = X.min()
+    max_values = X.max()
     return (X - min_values) / (max_values - min_values)
 
 def _reshape_X(X):
     """
-    Reshapes each array in the input list of arrays to have a shape of (timesteps, features).
-    
+    Reshape input features array.
+
     Parameters:
-    -----------
-    X : list of numpy.ndarray
-        The list of input arrays to be reshaped.
-        
+        X (numpy.ndarray): Input features.
+
     Returns:
-    --------
-    list of numpy.ndarray
-        The list of reshaped arrays with shape (timesteps, features).
+        list: List of reshaped input features arrays.
     """
     return [array.reshape(-1, 1) for array in X]
 
-
 def _reshape_Y(Y):
     """
-    Reshapes each array in the input list of arrays to have a shape of (timesteps, classes)
-    
+    Reshape input labels array.
+
     Parameters:
-    -----------
-    Y : list of numpy.ndarray
-        The list of labels arrays to be reshaped
-        
+        Y (numpy.ndarray): Input labels.
+
     Returns:
-    --------
-    list of numpy.ndarray
-        The list of reshaped arrays with shape (timesteps, classes).
+        list: List of reshaped input labels arrays.
     """
     return [array.reshape(1, len(array)) for array in Y]
+
+def _repeat_targets(X, Y):
+    """
+    Repeat each Y value for the dataset to the size of the relative X.
+
+    Parameters:
+        X (numpy.ndarray): Input features.
+        Y (numpy.ndarray): Input labels.
+
+    Returns:
+        list: List of repeated input labels arrays.
+    """
+    return [np.repeat(array, X[0].shape[0], axis=0) for array in Y]
