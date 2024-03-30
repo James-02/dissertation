@@ -3,11 +3,11 @@ from reservoirpy.datasets import japanese_vowels
 from sklearn.metrics import accuracy_score
 
 from preprocessing import load_ecg_data
-from oscillator.oscillator import Oscillator
+
+from reservoir.reservoir import OscillatorReservoir
 
 import numpy as np
 import reservoirpy as rpy
-import time
 
 from visualisation import *
 
@@ -17,10 +17,10 @@ rpy.set_seed(SEED)
 
 def transduction(use_oscillator=True):
     X_train, Y_train, X_test, Y_test = load_ecg_data(class_size=10, repeat_targets=True)
-    reservoir = Oscillator(timesteps=X_train[0].shape[0], name="genetic-oscillator-1")
+    reservoir = OscillatorReservoir(units=10, timesteps=X_train[0].shape[0])
 
     if not use_oscillator:
-        reservoir = Reservoir(500, sr=0.9, lr=0.1)
+        reservoir = Reservoir(10, sr=0.9, lr=0.1)
 
     source = Input()
     readout = Ridge(ridge=1e-6)
@@ -36,47 +36,39 @@ def transduction(use_oscillator=True):
     score = accuracy_score(np.concatenate(Y_test_class, axis=0), np.concatenate(Y_pred_class, axis=0))
     print("Accuracy: ", f"{score * 100:.3f} %")
 
-def classification(use_oscillator=True):
+def classification(use_oscillator=True, plot=True):
     # Load dataset
-    print("Loading Dataset")
-    # X_train, Y_train, X_test, Y_test = japanese_vowels()
-    # X_train =  [np.sin(np.linspace(0, 8 * np.pi, 187)).reshape(-1, 1)] * 2
-
     X_train, Y_train, X_test, Y_test = load_ecg_data(class_size=10)
     timespan = np.linspace(0, 187, 187)
 
-    # Initialise genetic oscillator node
-    reservoir = Oscillator(timesteps=X_train[0].shape[0], name="genetic-oscillator-1")
+    # initialize genetic oscillator node
+    reservoir = OscillatorReservoir(units=10, timesteps=187)
 
-    # Initialise other nodes
+    # initialize other nodes
     readout = Ridge(ridge=1e-6)
 
     # Use the oscillator node as the reservoir if the flag is set
     if not use_oscillator:
-        reservoir = Reservoir(500, sr=0.9, lr=0.1)
+        reservoir = Reservoir(10, sr=0.9, lr=0.1)
 
-    print("Training States")
     states_train = []
-
-    for i, x in enumerate(X_train):
-        # start timer
-        start = time.time()
-    
+    print("Training")
+    for x in X_train:
         # train reservoir
         states = reservoir.run(x)
-    
-        # end timer
-        end = time.time()
-        print(str(i) + " Time: " + str(end - start))
 
         # use final state as output ?
         states_train.append(states[-1, np.newaxis])
 
-    print("Fitting Readout Layer")
+    if plot:
+        plot_states(timespan, states)
+        return
+
+    print("Fitting")
     readout.fit(states_train, Y_train)
 
     Y_pred = []
-    print("Predicting from Reservoir")
+    print("Predicting")
     for x in X_test:
         states = reservoir.run(x)
 
