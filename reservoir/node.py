@@ -4,6 +4,7 @@
 from functools import partial
 
 import numpy as np
+import math
 
 from .dde import ddeint, dde_system
 
@@ -28,33 +29,35 @@ DEFAULT_HYPERS = {
     'D': 2.5, 
     'mu': 0.6,
     'delay': 10,
-    'coupling': 5e-4,
     'time': np.linspace(0, 1, 2),
     'initial_conditions': [0, 100, 0, 0]
 }
 
-def forward(node: Node, x: np.ndarray, **kwargs) -> np.ndarray:
+def forward_oscillator(node: Node, x: np.ndarray, **kwargs) -> np.ndarray:
     # Reset states if we have completed a full timeseries (+1 for initial conditions)
-    if len(node.states) - 1 == node.timesteps:
+    if node.current_timestep == node.timesteps:
         node.reset_states()
+        node.current_timestep = 0
 
-    input_val = x[0][0]  # first feature (ECG only has one feature)
+    input_val = x  # first feature (ECG only has one feature)
 
     # Update the parameters to add the input signal
     node.hypers.update({'input': input_val})
 
     # Solve the delayed differential equations to get the derivatives of the system variables
-    results = ddeint(dde_system, node.history, node.hypers['time'], node.hypers['delay'], args=(node.hypers,))
+    results = ddeint(dde_system, node._history, node.hypers['time'], node.hypers['delay'], args=(node.hypers,))
 
-    # update history with results
-    node.states = np.vstack((node.states, results[-1]))
+    # update the history of states
+    node._update_history(results[-1])
+
+    # increment timestep
+    node.current_timestep += 1
 
     # return state as results from single timestep run
     return results[-1]
 
 
-def initialize(node: Node, x=None, y=None, initial_values=None, *args, **kwargs):
-    print("Initialised Node: " + node.name)
+def initialize_oscillator(node: Node, x=None, y=None, initial_values=None, *args, **kwargs):
     if node.input_dim is not None:
         dim = node.input_dim
     else:
@@ -85,29 +88,37 @@ class Oscillator(Node):
         name=None,
         **kwargs,
     ):
-
         super(Oscillator, self).__init__(
             hypers=DEFAULT_HYPERS,
             params={},
-            forward=forward,
-            initializer=partial(initialize, initial_values=initial_values),
+            forward=forward_oscillator,
+            initializer=partial(initialize_oscillator, initial_values=initial_values),
             input_dim=input_dim,
             name=name,
             **kwargs,
         )
 
-        # initialise node's states
+        # initialize node parameters
         self.timesteps = timesteps
+        self.max_states = math.ceil(self.hypers['delay'])
+        self.current_timestep = 1
+
+        # dde system variables
+        self.variables = 4
+
+        # initialize node's states
         self.reset_states()
-    
+
     def reset_states(self):
         self.states = np.array(self.hypers['initial_conditions']).reshape(1, -1)
-    
-    def history(self, t):
-        num_timesteps, num_features = self.states.shape
 
-        if abs(t) > num_timesteps:
+    def _update_history(self, state):
+        self.states = np.vstack((self.states[-(self.max_states - 1):], state))
+
+    def _history(self, t):
+        timestep = self.states.shape[0]
+        if abs(t) > timestep:
             return self.states[0]
 
-        indices = np.arange(-num_timesteps + 1, 1)
-        return np.array([np.interp(t, indices, self.states[:, i]) for i in range(num_features)])
+        indices = np.arange(-timestep + 1, 1)
+        return np.array([np.interp(t, indices, self.states[:, i]) for i in range(self.variables)])
