@@ -60,9 +60,9 @@ def classification(use_oscillator=True, plot=True):
         # use final state as output ?
         states_train.append(states[-1, np.newaxis])
 
-    if plot:
-        plot_states(timespan, states)
-        return
+        if plot:
+            plot_states(timespan, states)
+            return
 
     print("Fitting")
     readout.fit(states_train, Y_train)

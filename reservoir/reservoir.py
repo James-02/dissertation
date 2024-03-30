@@ -12,8 +12,8 @@ from reservoirpy.utils.random import noise, rand_generator
 from reservoirpy.nodes.reservoirs.base import initialize, initialize_feedback
 from reservoirpy.utils.validation import is_array
 
-from .utils import weight_input, initialize_nodes, weight_coupling, compute_weight_matrix
-from .node import forward_oscillator
+from .utils import weight_input, weight_coupling, compute_weight_matrix
+from .node import forward_oscillator, Oscillator
 
 import numpy as np
 
@@ -112,6 +112,9 @@ class OscillatorReservoir(Node):
 
         self.nodes = initialize_nodes(self)
         self.coupling_matrix = weight_coupling(self)
+    
+def initialize_nodes(reservoir: Node):
+    return [Oscillator(timesteps=reservoir.timesteps) for _ in range(reservoir.hypers['units'])]
 
 
 def forward_reservoir(reservoir: Node, x: np.ndarray) -> np.ndarray:

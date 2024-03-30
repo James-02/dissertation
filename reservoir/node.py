@@ -39,22 +39,20 @@ def forward_oscillator(node: Node, x: np.ndarray, **kwargs) -> np.ndarray:
         node.reset_states()
         node.current_timestep = 0
 
-    input_val = x  # first feature (ECG only has one feature)
-
     # Update the parameters to add the input signal
-    node.hypers.update({'input': input_val})
+    node.hypers.update({'input': x})
 
-    # Solve the delayed differential equations to get the derivatives of the system variables
-    results = ddeint(dde_system, node._history, node.hypers['time'], node.hypers['delay'], args=(node.hypers,))
+    # Solve the delayed differential equations and extract the final row as the state
+    state = ddeint(dde_system, node._history, node.hypers['time'], node.hypers['delay'], args=(node.hypers,))[-1]
 
     # update the history of states
-    node._update_history(results[-1])
+    node._update_history(state)
 
     # increment timestep
     node.current_timestep += 1
 
     # return state as results from single timestep run
-    return results[-1]
+    return state
 
 
 def initialize_oscillator(node: Node, x=None, y=None, initial_values=None, *args, **kwargs):

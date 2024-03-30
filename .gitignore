@@ -1,4 +1,5 @@
-venv/
 __pycache__/
+venv/
 results/
+figures/
 reservoirpy/

@@ -4,14 +4,14 @@ import os
 
 DATA_DIR = 'data/ecg/'
 
-def load_ecg_data(repeat_targets=False, encode_labels=True, normalise=True, class_size=None):
+def load_ecg_data(repeat_targets=False, encode_labels=True, normalize=True, class_size=None):
     """
     Load ECG data and preprocess it.
 
     Parameters:
         repeat_targets (bool): Whether to repeat targets.
         encode_labels (bool): Whether to encode labels.
-        normalise (bool): Whether to normalise data.
+        normalize (bool): Whether to normalize data.
         class_size (int): Size of each class in the subset.
 
     Returns:
@@ -20,8 +20,8 @@ def load_ecg_data(repeat_targets=False, encode_labels=True, normalise=True, clas
     if not all(os.path.exists(os.path.join(DATA_DIR, file)) for file in ["X_train.npy", "Y_train.npy", "X_test.npy", "Y_test.npy"]):
         X_train, Y_train, X_test, Y_test = _load_ecg_data()
 
-    X_train, Y_train = _preprocess_data(X_train, Y_train, encode_labels, normalise, repeat_targets, class_size)
-    X_test, Y_test = _preprocess_data(X_test, Y_test, encode_labels, normalise, repeat_targets, class_size)
+    X_train, Y_train = _preprocess_data(X_train, Y_train, encode_labels, normalize, repeat_targets, class_size)
+    X_test, Y_test = _preprocess_data(X_test, Y_test, encode_labels, normalize, repeat_targets, class_size)
 
     return X_train, Y_train, X_test, Y_test
 
@@ -40,7 +40,7 @@ def _save_data(X_train, Y_train, X_test, Y_test):
     np.save(os.path.join(DATA_DIR, "ecg_X_test.npy"), X_test)
     np.save(os.path.join(DATA_DIR, "ecg_Y_test.npy"), Y_test)
 
-def _preprocess_data(X, Y, encode_labels=True, normalise=True, repeat_targets=False, class_size=None):
+def _preprocess_data(X, Y, encode_labels=True, normalize=True, repeat_targets=False, class_size=None):
     """
     Preprocess input features and labels.
 
@@ -48,15 +48,15 @@ def _preprocess_data(X, Y, encode_labels=True, normalise=True, repeat_targets=Fa
         X (numpy.ndarray): Input features.
         Y (numpy.ndarray): Input labels.
         encode_labels (bool): Whether to encode labels.
-        normalise (bool): Whether to normalise data.
+        normalize (bool): Whether to normalize data.
         repeat_targets (bool): Whether to repeat targets.
         class_size (int): Size of each class in the subset.
 
     Returns:
         tuple: A tuple containing preprocessed input features and labels (X, Y).
     """
-    if normalise:
-        X = _normalise(X)
+    if normalize:
+        X = _normalize(X)
 
     if encode_labels:
         Y = _encode_labels(Y)
@@ -147,7 +147,7 @@ def _encode_labels(Y):
     """
     return np.eye(np.max(Y) + 1)[Y]
 
-def _normalise(X):
+def _normalize(X):
     """
     Normalize input features.
 

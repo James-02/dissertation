@@ -2,8 +2,6 @@ import numpy as np
 
 from reservoirpy.node import Node
 
-from .node import Oscillator
-
 def weight_coupling(reservoir: Node) -> np.ndarray:
     coupling_matrix = np.full((len(reservoir.nodes), 1), reservoir.hypers['coupling'])
     min_percent = 0.1
@@ -22,9 +20,6 @@ def weight_coupling(reservoir: Node) -> np.ndarray:
 
     # normalise weights within the coupling range
     return normalize_array(weighted_coupling, (min_value, max_value))
-
-def initialize_nodes(reservoir: Node):
-    return [Oscillator(timesteps=reservoir.timesteps) for _ in range(reservoir.hypers['units'])]
 
 def compute_weight_matrix(units: int, decay_rate: float) -> np.ndarray:
     node_indices = np.arange(units)

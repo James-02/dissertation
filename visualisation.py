@@ -17,7 +17,7 @@ def plot_ecg(time, signal, idx):
     plt.legend([classes[idx // len(classes)]])
 
     plt.tight_layout()
-    plt.savefig(f"results/ecg-signal-{str(idx)}.png", bbox_inches="tight", dpi=500)
+    plt.savefig(f"figures/ecg/ecg-signal-{str(idx)}.png", bbox_inches="tight", dpi=500)
 
 
 def plot_ecg_gif(time, signal, idx):
@@ -49,7 +49,7 @@ def plot_ecg_gif(time, signal, idx):
     ani = FuncAnimation(fig, update, frames=len(signal), repeat=False, interval=800)
 
     # Save animation as GIF
-    ani.save(f'results/ecg-animation-{idx}.gif', writer="pillow", fps=60)    
+    ani.save(f'figures/ecg/ecg-animation-{idx}.gif', writer="pillow", fps=60)    
 
 def plot_states_gif(time, states):
     # Create a figure and axis objects
@@ -85,9 +85,9 @@ def plot_states_gif(time, states):
     ani = FuncAnimation(fig, update, frames=len(states), repeat=False, interval=800)
 
     # Save animation as GIF
-    ani.save('results/states-animation.gif', writer="pillow", fps=60)
+    ani.save('figures/states/states-animation.gif', writer="pillow", fps=60)
 
-def plot_states(time, states):
+def plot_oscillations(time, states):
     plt.figure(figsize=(6, 6))
 
     plt.plot(time, states[:, 0], label='A')
@@ -101,7 +101,24 @@ def plot_states(time, states):
     plt.legend()
 
     plt.tight_layout()
-    plt.savefig("results/states.png", bbox_inches="tight", dpi=800)
+    plt.show()
+    plt.savefig("figures/states/oscillations.png", bbox_inches="tight", dpi=800)
+
+def plot_states(time, states):
+    plt.figure(figsize=(6, 6))
+
+    for i in range(0, states.shape[1]):
+        plt.plot(time, states[:, i], label=f'Node {i+1}')
+
+    plt.xlabel('Time')
+    plt.ylabel('State')
+    plt.title('Oscillator States Evolution')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+    plt.savefig("figures/states/states.png", bbox_inches="tight", dpi=800)
 
 def plot_data_distribution(data):
     fig, ax = plt.subplots(figsize=(16, 8))
@@ -113,4 +130,4 @@ def plot_data_distribution(data):
            autopct='%1.1f%%', 
            colors=['red', 'orange', 'blue', 'magenta', 'cyan'])
 
-    plt.savefig("results/original-class-distribution.png", dpi=800, bbox_inches="tight")
+    plt.savefig("figures/preprocessing/original-class-distribution.png", dpi=800, bbox_inches="tight")
