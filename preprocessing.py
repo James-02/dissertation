@@ -1,10 +1,14 @@
+import os
 import numpy as np
 import pandas as pd
-import os
+
+from typing import List, Tuple
 
 DATA_DIR = 'data/ecg/'
 
-def load_ecg_data(repeat_targets=False, encode_labels=True, normalize=True, class_size=None):
+def load_ecg_data(repeat_targets: bool = False, encode_labels: bool = True, 
+                  normalize: bool = True, class_size: int = None) \
+     -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Load ECG data and preprocess it.
 
@@ -17,15 +21,13 @@ def load_ecg_data(repeat_targets=False, encode_labels=True, normalize=True, clas
     Returns:
         tuple: A tuple containing preprocessed training and testing data (X_train, Y_train, X_test, Y_test).
     """
-    if not all(os.path.exists(os.path.join(DATA_DIR, file)) for file in ["X_train.npy", "Y_train.npy", "X_test.npy", "Y_test.npy"]):
-        X_train, Y_train, X_test, Y_test = _load_ecg_data()
-
+    X_train, Y_train, X_test, Y_test = _load_ecg_data()
     X_train, Y_train = _preprocess_data(X_train, Y_train, encode_labels, normalize, repeat_targets, class_size)
     X_test, Y_test = _preprocess_data(X_test, Y_test, encode_labels, normalize, repeat_targets, class_size)
 
     return X_train, Y_train, X_test, Y_test
 
-def _save_data(X_train, Y_train, X_test, Y_test):
+def _save_data(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray, Y_test: np.ndarray) -> None:
     """
     Save the training and testing data to disk.
 
@@ -40,7 +42,9 @@ def _save_data(X_train, Y_train, X_test, Y_test):
     np.save(os.path.join(DATA_DIR, "ecg_X_test.npy"), X_test)
     np.save(os.path.join(DATA_DIR, "ecg_Y_test.npy"), Y_test)
 
-def _preprocess_data(X, Y, encode_labels=True, normalize=True, repeat_targets=False, class_size=None):
+def _preprocess_data(X: np.ndarray, Y: np.ndarray, encode_labels: bool = True, normalize: bool = True, 
+                     repeat_targets: bool = False, class_size: int = None) \
+     -> Tuple[np.ndarray, np.ndarray]:
     """
     Preprocess input features and labels.
 
@@ -55,6 +59,9 @@ def _preprocess_data(X, Y, encode_labels=True, normalize=True, repeat_targets=Fa
     Returns:
         tuple: A tuple containing preprocessed input features and labels (X, Y).
     """
+    if class_size:
+        X, Y = _get_subset(X, Y, class_size)
+
     if normalize:
         X = _normalize(X)
 
@@ -64,24 +71,31 @@ def _preprocess_data(X, Y, encode_labels=True, normalize=True, repeat_targets=Fa
     if repeat_targets:
         Y = _repeat_targets(X, Y)
 
-    if class_size:
-        X, Y = _get_subset(X, Y, class_size)
-    
     Y = _reshape_Y(Y)
     X = _reshape_X(X)
     
     return X, Y
 
-def _load_ecg_data():
+def _load_ecg_data() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
-    Load ECG data from CSV files.
+    Load ECG data from CSV files or pre-saved NumPy arrays.
 
     Returns:
         tuple: A tuple containing raw training and testing data (X_train, Y_train, X_test, Y_test).
     """
+    X_train_path = os.path.join(DATA_DIR + "X_train.npy")
+    Y_train_path = os.path.join(DATA_DIR + "Y_train.npy")
+    X_test_path = os.path.join(DATA_DIR + "X_test.npy")
+    Y_test_path = os.path.join(DATA_DIR + "Y_test.npy")
+
+    if all(os.path.exists(file) for file in [X_train_path, Y_train_path, X_test_path, Y_test_path]):
+        X_train, Y_train = np.load(X_train_path), np.load(Y_train_path)
+        X_test, Y_test = np.load(X_test_path), np.load(Y_test_path)
+        return X_train, Y_train, X_test, Y_test
+
     train_df = pd.read_csv(os.path.join(DATA_DIR, "ecg_train.csv"), header=None)
     test_df = pd.read_csv(os.path.join(DATA_DIR, "ecg_test.csv"), header=None)
-    
+
     train_df = _balance_dataset(train_df)
     test_df = _balance_dataset(test_df)
 
@@ -94,7 +108,7 @@ def _load_ecg_data():
 
     return X_train, Y_train, X_test, Y_test
 
-def _get_subset(X, Y, class_size):
+def _get_subset(X: np.ndarray, Y: np.ndarray, class_size: int) -> Tuple[np.ndarray, np.ndarray]:
     """
     Get a subset of data with balanced classes.
 
@@ -114,7 +128,6 @@ def _get_subset(X, Y, class_size):
     
     for label, _ in class_counts.items():
         indices = np.where(Y == label)[0]
-        np.random.shuffle(indices)
         sampled_indices.extend(indices[:class_size])
     
     X_subset = X[sampled_indices]
@@ -122,7 +135,7 @@ def _get_subset(X, Y, class_size):
     
     return X_subset, Y_subset
 
-def _balance_dataset(data):
+def _balance_dataset(data: pd.DataFrame) -> pd.DataFrame:
     """
     Sample data to balanced classes.
 
@@ -135,7 +148,7 @@ def _balance_dataset(data):
     class_size = data.iloc[:, -1].value_counts().min()
     return data.groupby(data.columns[-1]).apply(lambda x: x.sample(n=class_size))
 
-def _encode_labels(Y):
+def _encode_labels(Y: np.ndarray) -> np.ndarray:
     """
     Encode labels using one-hot encoding.
 
@@ -147,7 +160,7 @@ def _encode_labels(Y):
     """
     return np.eye(np.max(Y) + 1)[Y]
 
-def _normalize(X):
+def _normalize(X: np.ndarray) -> np.ndarray:
     """
     Normalize input features.
 
@@ -161,7 +174,7 @@ def _normalize(X):
     max_values = X.max()
     return (X - min_values) / (max_values - min_values)
 
-def _reshape_X(X):
+def _reshape_X(X: np.ndarray) -> List[np.ndarray]:
     """
     Reshape input features array.
 
@@ -173,7 +186,7 @@ def _reshape_X(X):
     """
     return [array.reshape(-1, 1) for array in X]
 
-def _reshape_Y(Y):
+def _reshape_Y(Y: np.ndarray) -> List[np.ndarray]:
     """
     Reshape input labels array.
 
@@ -185,7 +198,7 @@ def _reshape_Y(Y):
     """
     return [array.reshape(1, len(array)) for array in Y]
 
-def _repeat_targets(X, Y):
+def _repeat_targets(X: np.ndarray, Y: np.ndarray) -> List[np.ndarray]:
     """
     Repeat each Y value for the dataset to the size of the relative X.
 
