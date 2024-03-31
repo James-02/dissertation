@@ -21,10 +21,10 @@ def weight_coupling(reservoir: Node) -> np.ndarray:
     # normalise weights within the coupling range
     return normalize_array(weighted_coupling, (min_value, max_value))
 
-def compute_weight_matrix(units: int, decay_rate: float) -> np.ndarray:
-    node_indices = np.arange(units)
+def compute_weight_matrix(reservoir: Node) -> np.ndarray:
+    node_indices = np.arange(reservoir.hypers['units'])
     distances = np.abs(node_indices[:, None] - node_indices[None, :])
-    return np.exp(-decay_rate * distances)
+    return np.exp(-reservoir.hypers['rc_connectivity'] * distances)
 
 def weight_input(reservoir: Node, x: np.ndarray) -> np.ndarray:
     u = x.reshape(-1, 1)
@@ -40,4 +40,3 @@ def normalize_array(array: np.ndarray, range: tuple) -> np.ndarray:
     min_val = np.min(array)
     max_val = np.max(array)
     return (array - min_val) / (max_val - min_val) * (range[1] - range[0]) + range[0]
-

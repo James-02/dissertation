@@ -52,7 +52,6 @@ class OscillatorReservoir(Node):
             )
 
         rng = rand_generator(seed)
-        weight_matrix = compute_weight_matrix(units, rc_connectivity)
 
         noise_kwargs = dict() if noise_kwargs is None else noise_kwargs
 
@@ -72,6 +71,7 @@ class OscillatorReservoir(Node):
                 "internal_state": None,
             },
             hypers={
+                "timesteps": timesteps,
                 "coupling": coupling,
                 "sr": sr,
                 "input_scaling": input_scaling,
@@ -95,7 +95,7 @@ class OscillatorReservoir(Node):
                 bias_scaling=bias_scaling,
                 input_connectivity=input_connectivity,
                 rc_connectivity=rc_connectivity,
-                W_init=weight_matrix,
+                W_init=W,
                 Win_init=Win,
                 bias_init=bias,
                 input_bias=input_bias,
@@ -107,9 +107,7 @@ class OscillatorReservoir(Node):
             **kwargs,
         )
 
-        self.W = weight_matrix
-        self.timesteps = timesteps
-
+        self.W = compute_weight_matrix(self)
         self.nodes = initialize_nodes(self)
         self.coupling_matrix = weight_coupling(self)
     

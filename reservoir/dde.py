@@ -87,9 +87,6 @@ def ddeint(func, y0, t, tau, args=(), y0_args=(), n_time_points_per_step=None):
 
     return y_return
 
-def simple_oscillator(x, t, x_past, beta, n, tau):
-    return beta / (1 + x_past(t-tau)**n) - x
-
 def dde_system(Y, t, Y_past, params):
     """
     Define the delayed differential equations (DDE) system.
