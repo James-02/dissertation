@@ -1,12 +1,9 @@
-# Author: James Newsome on 26/02/2024 <james.newsome02@gmail.com>
-# Licence: MIT License
-# Copyright: Xavier Hinaut (2018) <xavier.hinaut@inria.fr>
 from functools import partial
 
 import numpy as np
 import math
 
-from .dde import ddeint, dde_system
+from .dde import ddeint, dde_system, interpolate_history
 
 from reservoirpy.node import Node
 
@@ -43,7 +40,7 @@ def forward_oscillator(node: Node, x: np.ndarray, **kwargs) -> np.ndarray:
     node.hypers.update({'input': x})
 
     # Solve the delayed differential equations and extract the final row as the state
-    state = ddeint(dde_system, node._history, node.hypers['time'], node.hypers['delay'], args=(node.hypers,))[-1]
+    state = ddeint(dde_system, node._history, node.hypers['time'], args=(node.hypers,))[-1]
 
     # update the history of states
     node._update_history(state)
@@ -99,10 +96,7 @@ class Oscillator(Node):
         # initialize node parameters
         self.timesteps = timesteps
         self.max_states = math.ceil(self.hypers['delay'])
-        self.current_timestep = 1
-
-        # dde system variables
-        self.variables = 4
+        self.current_timestep = 0
 
         # initialize node's states
         self.reset_states()
@@ -114,9 +108,6 @@ class Oscillator(Node):
         self.states = np.vstack((self.states[-(self.max_states - 1):], state))
 
     def _history(self, t):
-        timestep = self.states.shape[0]
-        if abs(t) > timestep:
+        if abs(t) > self.states.shape[0]:
             return self.states[0]
-
-        indices = np.arange(-timestep + 1, 1)
-        return np.array([np.interp(t, indices, self.states[:, i]) for i in range(self.variables)])
+        return interpolate_history(t, self.states)

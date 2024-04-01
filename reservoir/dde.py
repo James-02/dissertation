@@ -1,98 +1,52 @@
 import numpy as np
-import scipy
 
-def ddeint(func, y0, t, tau, args=(), y0_args=(), n_time_points_per_step=None):
-    """
-    Integrate a system of delay differential equations.
+from scipy.integrate import odeint
+from typing import Callable, Tuple
+
+def ddeint(func: Callable, history: Callable, t: np.ndarray, args: Tuple = ()) -> np.ndarray:
+    """Solves Delay Differential Equations using scipy's odeint.
 
     Args:
         func (callable): Function representing the system of delay differential equations.
-        y0 (callable): Function providing initial conditions for the system.
-        t (array-like): Array of time points for integration.
-        tau (float or array-like): Delay time(s).
-        args (tuple, optional): Additional arguments to pass to `func`.
-        y0_args (tuple, optional): Additional arguments to pass to `y0`.
-        n_time_points_per_step (int, optional): Number of time points per integration step.
+        history (callable): Function providing history values for the system.
+        t (np.ndarray): Array of time points for integration.
+        args (tuple, optional): Additional positional arguments to pass to `func`.
 
     Returns:
-        array-like: Solution of the delay differential equations at the specified time points.
+        np.ndarray: Solution of the delay differential equations at the specified time points.
     """
+    y = np.empty((len(t), len(history(t[0]))))
 
-    # Convert tau to a numpy array for consistent handling.
-    tau = np.atleast_1d(tau)
+    for i, t_i in enumerate(t):
+        y0 = history(t_i)
+        y[i] = odeint(func, y0, [t_i - tau for tau in reversed(t[:i+1])], args=(history,) + args)[-1]
 
-    # Ensure that all delay times are positive.
-    if (tau <= 0).any():
-        raise RuntimeError("All tau's must be greater than zero.")
+    return y
 
-    # Determine the shortest and longest delay times.
-    tau_short = np.min(tau)
-    tau_long = np.max(tau)
-
-    # If the number of time points per step isn't specified,
-    # calculate it based on the total time range and the longest delay.
-    if n_time_points_per_step is None:
-        n_time_points_per_step = max(int(1 + len(t) / (t.max() - t.min()) * tau_long), 20)
-
-    t0 = t[0]
-
-    # Define the past function for the first step.
-    y_past = lambda time_point: y0(time_point, *y0_args)
-
-    # Integrate the system over the first step.
-    t_step = np.linspace(t0, t0 + tau_short, n_time_points_per_step)
-    y = scipy.integrate.odeint(func, y_past(t0), t_step, args=(y_past,) + args)
-
-    # Store the solution from the first step.
-    y_dense = y.copy()
-    t_dense = t_step.copy()
-
-    # Get the dimension of the system (number of equations).
-    n = y.shape[1]
-
-    # Integrate the system over subsequent steps.
-    j = 1
-    while t_step[-1] < t[-1]:
-        # Determine the starting time for interpolation.
-        t_start = max(t0, t_step[-1] - tau_long)
-        i = np.searchsorted(t_dense, t_start, side="left")
-        t_interp = t_dense[i:]
-        y_interp = y_dense[i:, :]
-
-        # Create B-spline representations of the solution for interpolation.
-        tck = [scipy.interpolate.splrep(t_interp, y_interp[:, i]) for i in range(n)]
-
-        # Define the past function for this step.
-        y_past = (
-            lambda time_point: np.array([scipy.interpolate.splev(time_point, tck[i]) for i in range(n)])
-            if time_point > t0
-            else y0(time_point, *y0_args)
-        )
-
-        # Integrate the system over this step.
-        t_step = np.linspace(t0 + j * tau_short, t0 + (j + 1) * tau_short, n_time_points_per_step)
-        y = scipy.integrate.odeint(func, y[-1, :], t_step, args=(y_past,) + args)
-
-        # Append the solution from this step to the stored solution.
-        y_dense = np.append(y_dense, y[1:, :], axis=0)
-        t_dense = np.append(t_dense, t_step[1:])
-
-        j += 1
-
-    # Interpolate the dense solution to get values at the desired time points.
-    y_return = np.empty((len(t), n))
-    for i in range(n):
-        tck = scipy.interpolate.splrep(t_dense, y_dense[:, i])
-        y_return[:, i] = scipy.interpolate.splev(t, tck)
-
-    return y_return
-
-def dde_system(Y, t, Y_past, params):
+def dde_system(Y: np.ndarray, t: float, history: Callable, params: dict) -> np.ndarray:
     """
     Define the delayed differential equations (DDE) system.
+
+    This function represents the system of delay differential equations,
+    the equations represent two coupled genes (A, I) and their behaviour during expression.
+    Hi, He represent the internal and external signals of the cell during expression.
+
+    The system uses a delayed differential equation solver to compute the derivatives of each
+    variable in the system at a given time point `t`, based on the current state `Y`,
+    the past state provided by the `history` function, and the parameters `params`.
+
+    Args:
+        Y (np.ndarray): Current state of the system at time `t`.
+        t (float): Current time point.
+        history (callable): Function to interpolate the historical values of the system's variables.
+        params (dict): Dictionary containing parameters required for the system dynamics.
+
+    Returns:
+        List: List containing the derivatives of each variable in the system
+        at the given time point `t`.
     """
     A, I, Hi, He = Y
-    Hlag = Y_past(t - params['delay'])[2]  # Delayed value of Hi
+    Hlag = history(t - params['delay'])[2]  # Delayed value of Hi
     P = (params['del_'] + params['alpha'] * Hlag**2) / (1 + params['k1'] * Hlag**2)
 
     # external input signal
@@ -104,3 +58,16 @@ def dde_system(Y, t, Y_past, params):
     dHedt = -params['d'] / (1 - params['d']) * params['D'] * (He - Hi) - params['mu'] * He
     
     return [dAdt, dIdt, dHidt, dHedt]
+
+def interpolate_history(t: float, states: np.ndarray) -> np.ndarray:
+    """Interpolates history values at given time points.
+
+    Args:
+        t (float): Time point to interpolate history at.
+        states (np.ndarray): Array of historical states.
+
+    Returns:
+        List: Interpolated history values.
+    """
+    indices = np.arange(-states.shape[0] + 1, 1)
+    return [np.interp(t, indices, states[:, i]) for i in range(states.shape[1])]
