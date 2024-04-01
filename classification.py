@@ -1,79 +1,78 @@
-from reservoirpy.nodes import Reservoir, Ridge, Input
-from reservoirpy.datasets import japanese_vowels
-from sklearn.metrics import accuracy_score
-
-from preprocessing import load_ecg_data
-
-from reservoir.reservoir import OscillatorReservoir
+from multiprocessing import Pool
+import time
 
 import numpy as np
 import reservoirpy as rpy
 
-from visualisation import *
+from reservoirpy.nodes import Reservoir, Ridge
+from sklearn.metrics import accuracy_score
+
+from reservoir.reservoir import OscillatorReservoir
+
+from preprocessing import load_ecg_data
+from visualisation import plot_states
 
 SEED = 1337
-
 rpy.set_seed(SEED)
 
-def transduction(use_oscillator=True):
-    X_train, Y_train, X_test, Y_test = load_ecg_data(class_size=10, repeat_targets=True)
-    reservoir = OscillatorReservoir(units=10, timesteps=X_train[0].shape[0])
+def __train(args):
+    x, reservoir = args
+    return reservoir.run(x)
 
-    if not use_oscillator:
-        reservoir = Reservoir(10, sr=0.9, lr=0.1)
+def __predict(args):
+    x, reservoir, readout = args
+    states = reservoir.run(x)
+    return readout.run(states[-1, np.newaxis])
 
-    source = Input()
-    readout = Ridge(ridge=1e-6)
-    model = source >> reservoir >> readout
+def _train(X_train, reservoir, use_multiprocessing, plot):
+    if use_multiprocessing:
+        with Pool() as pool:
+            results_train = pool.map(__train, [(x, reservoir) for x in X_train])
+    else:
+        results_train = [__train((x, reservoir)) for x in X_train]
+        if plot:
+            for states in results_train:
+                _plot(states)
+
+    return [result[-1, np.newaxis] for result in results_train]
+
+def _predict(X_test, reservoir, readout, use_multiprocessing):
+    if use_multiprocessing:
+        with Pool() as pool:
+            results_pred = pool.map(__predict, [(x, reservoir, readout) for x in X_test])
+        return results_pred
+    else:
+        return [__predict((x, reservoir, readout)) for x in X_test]
     
-    # train and test the model
-    Y_pred = model.fit(X_train, Y_train).run(X_test)
+def _plot(states):
+    timesteps = len(states)
+    timespan = np.linspace(0, timesteps, timesteps)
+    plot_states(timespan, states)
 
-    Y_pred_class = [np.argmax(y_p, axis=1) for y_p in Y_pred]
-    Y_test_class = [np.argmax(y_t, axis=1) for y_t in Y_test]
-
-    # check the accuracy of predicted vs real targets
-    score = accuracy_score(np.concatenate(Y_test_class, axis=0), np.concatenate(Y_pred_class, axis=0))
-    print("Accuracy: ", f"{score * 100:.3f} %")
-
-def classification(use_oscillator=True, plot=True):
+def classification(use_oscillator=True, use_multiprocessing=True, plot_states=False):
     # Load dataset
     X_train, Y_train, X_test, Y_test = load_ecg_data(class_size=10)
-    timespan = np.linspace(0, 187, 187)
-
-    # initialize genetic oscillator node
-    reservoir = OscillatorReservoir(units=10, timesteps=187)
-
-    # initialize other nodes
-    readout = Ridge(ridge=1e-6)
+    timesteps = X_train[0].shape[0]
 
     # Use the oscillator node as the reservoir if the flag is set
-    if not use_oscillator:
-        reservoir = Reservoir(10, sr=0.9, lr=0.1)
+    reservoir = OscillatorReservoir(units=5, timesteps=timesteps) if use_oscillator else Reservoir(100, sr=0.9, lr=0.1)
 
-    states_train = []
-    print("Training")
-    for x in X_train:
-        # train reservoir
-        states = reservoir.run(x)
+    # Initialize reservoir and readout
+    readout = Ridge(ridge=1e-6)
 
-        # use final state as output ?
-        states_train.append(states[-1, np.newaxis])
+    # Training
+    start = time.time()
+    states_train = _train(X_train, reservoir, use_multiprocessing, plot_states)
+    end = time.time()
+    print("Training Time: " + str(end - start) + "s")
 
-        if plot:
-            plot_states(timespan, states)
-            return
-
+    # Fitting
     print("Fitting")
     readout.fit(states_train, Y_train)
 
-    Y_pred = []
+    # Predicting
     print("Predicting")
-    for x in X_test:
-        states = reservoir.run(x)
-
-        y = readout.run(states[-1, np.newaxis])
-        Y_pred.append(y)
+    Y_pred = _predict(X_test, reservoir, readout, use_multiprocessing)
 
     Y_pred_class = [np.argmax(y_p) for y_p in Y_pred]
     Y_test_class = [np.argmax(y_t) for y_t in Y_test]
@@ -83,5 +82,4 @@ def classification(use_oscillator=True, plot=True):
     print("Accuracy: ", f"{score * 100:.3f} %")
 
 if __name__ == "__main__":
-    # transduction(use_oscillator=True)
-    classification(use_oscillator=True)
+    classification(use_oscillator=True, use_multiprocessing=False, plot_states=False)
