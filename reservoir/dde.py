@@ -1,10 +1,10 @@
 import numpy as np
 
-from scipy.integrate import odeint
+from scipy.integrate import solve_ivp
 from typing import Callable, Tuple
 
 def ddeint(func: Callable, history: Callable, t: np.ndarray, args: Tuple = ()) -> np.ndarray:
-    """Solves Delay Differential Equations using scipy's odeint.
+    """Solves Delay Differential Equations using scipy's solve_ivp.
 
     Args:
         func (callable): Function representing the system of delay differential equations.
@@ -15,13 +15,8 @@ def ddeint(func: Callable, history: Callable, t: np.ndarray, args: Tuple = ()) -
     Returns:
         np.ndarray: Solution of the delay differential equations at the specified time points.
     """
-    y = np.empty((len(t), len(history(t[0]))))
+    return solve_ivp(lambda t, Y, args: func(Y, t, history, args), [t[0], t[-1]], history(t[0]), t_eval=t, args=args).y.T
 
-    for i, t_i in enumerate(t):
-        y0 = history(t_i)
-        y[i] = odeint(func, y0, [t_i - tau for tau in reversed(t[:i+1])], args=(history,) + args)[-1]
-
-    return y
 
 def dde_system(Y: np.ndarray, t: float, history: Callable, params: dict) -> np.ndarray:
     """
