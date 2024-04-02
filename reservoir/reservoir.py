@@ -12,7 +12,7 @@ from reservoirpy.utils.random import noise, rand_generator
 from reservoirpy.nodes.reservoirs.base import initialize, initialize_feedback
 from reservoirpy.utils.validation import is_array
 
-from .utils import weight_input, weight_coupling, compute_weight_matrix
+from .utils import weight_input, weight_previous_state
 from .node import Oscillator
 
 import numpy as np
@@ -22,7 +22,7 @@ class OscillatorReservoir(Node):
         self,
         units: int = None,
         timesteps: int = None,
-        coupling: float = 1e-4,
+        coupling: float = 1e-3,
         sr: Optional[float] = None,
         input_bias: bool = True,
         noise_rc: float = 0.3,
@@ -107,24 +107,27 @@ class OscillatorReservoir(Node):
             **kwargs,
         )
 
-        self.W = compute_weight_matrix(self)
         self.nodes = initialize_nodes(self)
-        self.coupling_matrix = weight_coupling(self)
     
 def initialize_nodes(reservoir: Node):
     return [Oscillator(timesteps=reservoir.timesteps) for _ in range(reservoir.hypers['units'])]
 
 def forward_reservoir(reservoir: Node, x: np.ndarray) -> np.ndarray:
     states = np.zeros((len(reservoir.nodes), x.shape[0]))
+
+    # Calculate pre_state
+    pre_state = weight_previous_state(reservoir)
+
+    # Calculate weighted input
     weighted_input = weight_input(reservoir, x)
 
     for i, node in enumerate(reservoir.nodes):
-        coupled_input = reservoir.coupling_matrix[i, 0] * np.sum(weighted_input)
+        coupled_input = pre_state[i, 0] + weighted_input[i, 0]
 
         # Run forward function with weighted input
         state = node.forward(coupled_input)
 
-        # Update the reservoir state for that node at the timestep
+        # Update the reservoir state with the state of gene I for this timestep
         states[i] = state.flatten()[1]
 
     return states.T

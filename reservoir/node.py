@@ -22,7 +22,7 @@ DEFAULT_HYPERS = {
     'D': 2.5, 
     'mu': 0.6,
     'delay': 10,
-    'time': np.linspace(0, 1, 2),
+    'time': np.linspace(0, 1),
     'initial_conditions': [0, 100, 0, 0]
 }
 
