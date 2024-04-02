@@ -31,7 +31,7 @@ DEFAULT_HYPERS = {
 }
 
 def forward_oscillator(node: Node, x: np.ndarray, **kwargs) -> np.ndarray:
-    # Reset states if we have completed a full timeseries (+1 for initial conditions)
+    # Reset states if we have completed a full timeseries
     if node.current_timestep == node.timesteps:
         node.reset_states()
         node.current_timestep = 0
@@ -48,7 +48,7 @@ def forward_oscillator(node: Node, x: np.ndarray, **kwargs) -> np.ndarray:
     # increment timestep
     node.current_timestep += 1
 
-    # return state as results from single timestep run
+    # return gene state (A) at this timestep
     return state
 
 

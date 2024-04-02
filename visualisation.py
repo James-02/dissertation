@@ -104,7 +104,10 @@ def plot_oscillations(time, states):
     plt.show()
     plt.savefig("figures/states/oscillations.png", bbox_inches="tight", dpi=800)
 
-def plot_states(time, states):
+def plot_states(states):
+    timesteps = len(states)
+    time = np.linspace(0, timesteps, timesteps)
+
     plt.figure(figsize=(6, 6))
 
     for i in range(0, states.shape[1]):

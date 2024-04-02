@@ -17,7 +17,6 @@ def ddeint(func: Callable, history: Callable, t: np.ndarray, args: Tuple = ()) -
     """
     return solve_ivp(lambda t, Y, args: func(Y, t, history, args), [t[0], t[-1]], history(t[0]), t_eval=t, args=args).y.T
 
-
 def dde_system(Y: np.ndarray, t: float, history: Callable, params: dict) -> np.ndarray:
     """
     Define the delayed differential equations (DDE) system.
@@ -40,13 +39,18 @@ def dde_system(Y: np.ndarray, t: float, history: Callable, params: dict) -> np.n
         List: List containing the derivatives of each variable in the system
         at the given time point `t`.
     """
+    # dde system variables representing two coupled genes (A, I) and the internal/external signals of the cell (Hi, He)
     A, I, Hi, He = Y
-    Hlag = history(t - params['delay'])[2]  # Delayed value of Hi
+
+    # Value of Hi at 'delay' timesteps in the past
+    Hlag = history(t - params['delay'])[2]
+
     P = (params['del_'] + params['alpha'] * Hlag**2) / (1 + params['k1'] * Hlag**2)
 
     # external input signal
     Hetot = He + params['input']
 
+    # equations to calculate the state of the genetic oscillator for the timepoint t
     dAdt = params['CA'] * (1 - (params['d']/params['d0'])**4) * P - params['gammaA'] * A / (1 + params['f'] * (A + I))
     dIdt = params['CI'] * (1 - (params['d']/params['d0'])**4) * P - params['gammaI'] * I / (1 + params['f'] * (A + I))
     dHidt = params['b'] * I / (1 + params['k'] * I) - params['gammaH'] * A * Hi / (1 + params['g'] * A) + params['D'] * (Hetot - Hi)
