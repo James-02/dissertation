@@ -3,8 +3,8 @@ import numpy as np
 from scipy.integrate import solve_ivp
 from typing import Callable, Tuple
 
-def ddeint(func: Callable, history: Callable, t: np.ndarray, args: Tuple = ()) -> np.ndarray:
-    """Solves Delay Differential Equations using scipy's solve_ivp.
+def solve_dde(func: Callable, history: Callable, t: np.ndarray, args: Tuple = ()) -> np.ndarray:
+    """Wrapper function which solves Delay Differential Equations using scipy's solve_ivp.
 
     Args:
         func (callable): Function representing the system of delay differential equations.

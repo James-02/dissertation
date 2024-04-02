@@ -13,7 +13,7 @@ from reservoirpy.nodes.reservoirs.base import initialize, initialize_feedback
 from reservoirpy.utils.validation import is_array
 
 from .utils import weight_input, weight_coupling, compute_weight_matrix
-from .node import forward_oscillator, Oscillator
+from .node import Oscillator
 
 import numpy as np
 
@@ -114,7 +114,6 @@ class OscillatorReservoir(Node):
 def initialize_nodes(reservoir: Node):
     return [Oscillator(timesteps=reservoir.timesteps) for _ in range(reservoir.hypers['units'])]
 
-
 def forward_reservoir(reservoir: Node, x: np.ndarray) -> np.ndarray:
     states = np.zeros((len(reservoir.nodes), x.shape[0]))
     weighted_input = weight_input(reservoir, x)
@@ -123,9 +122,9 @@ def forward_reservoir(reservoir: Node, x: np.ndarray) -> np.ndarray:
         coupled_input = reservoir.coupling_matrix[i, 0] * np.sum(weighted_input)
 
         # Run forward function with weighted input
-        state_next = forward_oscillator(node, coupled_input)
+        state = node.forward(coupled_input)
 
         # Update the reservoir state for that node at the timestep
-        states[i] = state_next.flatten().sum()
+        states[i] = state.flatten()[1]
 
     return states.T

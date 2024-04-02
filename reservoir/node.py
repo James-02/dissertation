@@ -1,11 +1,7 @@
-from functools import partial
-
 import numpy as np
 import math
 
-from .dde import ddeint, dde_system, interpolate_history
-
-from reservoirpy.node import Node
+from .dde import solve_dde, dde_system, interpolate_history
 
 # Default hyperparameters for the oscillator
 DEFAULT_HYPERS = {
@@ -30,84 +26,87 @@ DEFAULT_HYPERS = {
     'initial_conditions': [0, 100, 0, 0]
 }
 
-def forward_oscillator(node: Node, x: np.ndarray, **kwargs) -> np.ndarray:
-    # Reset states if we have completed a full timeseries
-    if node.current_timestep == node.timesteps:
-        node.reset_states()
-        node.current_timestep = 0
+class Oscillator():
+    """
+    A class representing an oscillator system.
 
-    # Update the parameters to add the input signal
-    node.hypers.update({'input': x})
+    Attributes:
+        timesteps (int): Number of timesteps to run the oscillator.
+        hypers (dict): Dictionary containing hyperparameters of the oscillator.
+        max_states (int): Maximum number of states to keep in history.
+        current_timestep (int): Current timestep of the oscillator.
+    """
 
-    # Solve the delayed differential equations and extract the final row as the state
-    state = ddeint(dde_system, node._history, node.hypers['time'], args=(node.hypers,))[-1]
+    def __init__(self, timesteps: int, hypers: dict = DEFAULT_HYPERS):
+        """
+        Initialize an oscillator node.
 
-    # update the history of states
-    node._update_history(state)
-
-    # increment timestep
-    node.current_timestep += 1
-
-    # return gene state (A) at this timestep
-    return state
-
-
-def initialize_oscillator(node: Node, x=None, y=None, initial_values=None, *args, **kwargs):
-    if node.input_dim is not None:
-        dim = node.input_dim
-    else:
-        # infer data dimensions
-        dim = x.shape[1] if x is not None else 1
-
-    # set input dimensions
-    node.set_input_dim(dim)
-
-    # set output dimension to be the 4 dde system variables
-    node.set_output_dim(len(node.hypers['initial_conditions']))
-
-    # Set the node's initial values
-    if initial_values:
-        if len(initial_values) == 4 and all(isinstance(val, int) for val in initial_values):
-            node.initial_values = initial_values
-        else:
-            raise RuntimeError("Initial values must be an array of integers of length 4.")
-    else:
-        node.initial_values = DEFAULT_HYPERS['initial_conditions']
-
-class Oscillator(Node):
-    def __init__(
-        self,
-        timesteps,
-        input_dim=None,
-        initial_values=None,
-        name=None,
-        **kwargs,
-    ):
-        super(Oscillator, self).__init__(
-            hypers=DEFAULT_HYPERS,
-            params={},
-            forward=forward_oscillator,
-            initializer=partial(initialize_oscillator, initial_values=initial_values),
-            input_dim=input_dim,
-            name=name,
-            **kwargs,
-        )
-
-        # initialize node parameters
+        Args:
+            timesteps (int): Number of timesteps to run the oscillator.
+            hypers (dict, optional): Dictionary containing hyperparameters of the oscillator. 
+                Defaults to DEFAULT_HYPERS.
+        """
         self.timesteps = timesteps
-        self.max_states = math.ceil(self.hypers['delay'])
-        self.current_timestep = 0
+        self.hypers = hypers
 
-        # initialize node's states
-        self.reset_states()
+        self._max_states = math.ceil(self.hypers['delay'])
+        self._current_timestep = 0
+        self._states = self._reset_states()
 
-    def reset_states(self):
-        self.states = np.array(self.hypers['initial_conditions']).reshape(1, -1)
+    
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        """
+        Run the oscillator for one timestep with input x.
+
+        Args:
+            x (np.ndarray): Input signal.
+
+        Returns:
+            np.ndarray: Current state of the oscillator (A, I, Hi, He).
+        """
+        # Reset states if we have completed a full timeseries
+        if self._current_timestep == self.timesteps:
+            self._states = self._reset_states()
+            self._current_timestep = 0
+
+        # Update the parameters to add the input signal
+        self.hypers.update({'input': x})
+
+        # Solve the delayed differential equations and extract the final row as the state
+        state = solve_dde(dde_system, self._history, self.hypers['time'], args=(self.hypers,))[-1]
+
+        # update the history of states
+        self._update_history(state)
+
+        # increment timestep
+        self._current_timestep += 1
+
+        # return system states at this timestep
+        return state
+
+    def _reset_states(self):
+        """Reset the states of the oscillator to the initial conditions."""
+        return np.array(self.hypers['initial_conditions']).reshape(1, -1)
 
     def _update_history(self, state):
-        self.states = np.vstack((self.states[-(self.max_states - 1):], state))
+        """
+        Append a new state to the states history vector.
+
+        Args:
+            state (np.ndarray): New state to be added to the history.
+        """
+        self._states = np.vstack((self._states[-(self._max_states - 1):], state))
 
     def _history(self, t):
-        if abs(t) > self.states.shape[0]:
-            return self.states[0]
-        return interpolate_history(t, self.states)
+        """
+        Return the interpolated history of states at time t.
+
+        Args:
+            t (float): Time at which the history is requested.
+
+        Returns:
+            np.ndarray: Interpolated history of states at time t.
+        """
+        if abs(t) > self._states.shape[0]:
+            return self._states[0]
+        return interpolate_history(t, self._states)
