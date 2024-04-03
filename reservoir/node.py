@@ -21,9 +21,7 @@ DEFAULT_HYPERS = {
     'd0': 0.88, 
     'D': 2.5, 
     'mu': 0.6,
-    'delay': 10,
     'time': np.linspace(0, 1),
-    'initial_conditions': [0, 100, 0, 0]
 }
 
 class Oscillator():
@@ -35,19 +33,33 @@ class Oscillator():
         hypers (dict): Dictionary containing hyperparameters of the oscillator.
         max_states (int): Maximum number of states to keep in history.
         current_timestep (int): Current timestep of the oscillator.
+    
+    Raises:
+        RuntimeError: If delay is not greater than 0 or if initial_values does not contain exactly 4 values.
     """
 
-    def __init__(self, timesteps: int, hypers: dict = DEFAULT_HYPERS):
+    def __init__(self, timesteps: int, delay: float, initial_values: list, hypers: dict = DEFAULT_HYPERS):
         """
         Initialize an oscillator node.
 
         Args:
-            timesteps (int): Number of timesteps to run the oscillator.
+            timesteps (int): Number of timesteps of the dataset, allows us to know when to clear states history.
+            delay (float): Delay parameter of the oscillator.
+            initial_values (list): List containing initial values of the oscillator's state.
+                The list must contain exactly 4 values.
             hypers (dict, optional): Dictionary containing hyperparameters of the oscillator. 
                 Defaults to DEFAULT_HYPERS.
         """
+        if delay <= 0:
+            raise RuntimeError("Delay must be > 0")
+        
+        if len(initial_values) != 4:
+            raise RuntimeError("Initial values must be a list of 4 values")
+
         self.timesteps = timesteps
         self.hypers = hypers
+        self.hypers['delay'] = delay
+        self.hypers['initial_conditions'] = initial_values
 
         self._max_states = math.ceil(self.hypers['delay'])
         self._current_timestep = 0

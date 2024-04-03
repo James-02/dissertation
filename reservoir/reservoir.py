@@ -22,6 +22,8 @@ class OscillatorReservoir(Node):
         self,
         units: int = None,
         timesteps: int = None,
+        delay: float = 10,
+        initial_values: list = [0, 100, 0, 0],
         coupling: float = 1e-3,
         sr: Optional[float] = None,
         input_bias: bool = True,
@@ -45,6 +47,40 @@ class OscillatorReservoir(Node):
         seed=None,
         **kwargs,
     ):
+        """
+        Initialize an oscillator reservoir.
+
+        Parameters:
+            units (int, optional): Number of oscillator units in the reservoir. Defaults to None.
+            timesteps (int, optional): Number of timesteps in the reservoir. Defaults to None.
+            delay (float, optional): Delay parameter of the oscillator nodes. Defaults to 10.
+            initial_values (list, optional): Initial states for each oscillator node. Defaults to [0, 100, 0, 0].
+            coupling (float, optional): Coupling strength of the oscillator nodes. Defaults to 1e-3.
+            sr (Optional[float], optional): Spectral radius parameter for reservoir weights initialization. Defaults to None.
+            input_bias (bool, optional): Flag indicating whether to include input bias. Defaults to True.
+            noise_rc (float, optional): RC noise parameter for reservoir initialization. Defaults to 0.3.
+            noise_in (float, optional): Input noise parameter for reservoir initialization. Defaults to 0.3.
+            noise_fb (float, optional): Feedback noise parameter for reservoir initialization. Defaults to 0.3.
+            noise_type (str, optional): Type of noise to be applied. Defaults to "normal".
+            noise_kwargs (Dict, optional): Additional keyword arguments for noise generation. Defaults to None.
+            input_scaling (Union[float, Sequence], optional): Scaling factor for input weights. Defaults to 1.0.
+            bias_scaling (float, optional): Scaling factor for bias weights. Defaults to 1.0.
+            fb_scaling (Union[float, Sequence], optional): Scaling factor for feedback weights. Defaults to 1.0.
+            input_connectivity (float, optional): Connectivity parameter for input weights. Defaults to 0.5.
+            rc_connectivity (float, optional): Connectivity parameter for reservoir weights. Defaults to 0.1.
+            fb_connectivity (float, optional): Connectivity parameter for feedback weights. Defaults to 0.1.
+            Win (Union[Weights, Callable], optional): Initializer function for input weights. Defaults to normal.
+            W (Union[Weights, Callable], optional): Initializer function for reservoir weights. Defaults to normal.
+            Wfb (Union[Weights, Callable], optional): Initializer function for feedback weights. Defaults to bernoulli.
+            bias (Union[Weights, Callable], optional): Initializer function for bias weights. Defaults to bernoulli.
+            input_dim (Optional[int], optional): Dimensionality of the input data. Defaults to None.
+            feedback_dim (Optional[int], optional): Dimensionality of the feedback data. Defaults to None.
+            seed ([type], optional): Seed for random number generation. Defaults to None.
+            **kwargs: Additional keyword arguments.
+
+        Raises:
+            ValueError: If 'units' parameter is None and 'W' parameter is not a matrix.
+        """
         if units is None and not is_array(W):
             raise ValueError(
                 "'units' parameter must not be None if 'W' parameter is not "
@@ -73,6 +109,8 @@ class OscillatorReservoir(Node):
             hypers={
                 "timesteps": timesteps,
                 "coupling": coupling,
+                "delay": delay,
+                "initial_values": initial_values,
                 "sr": sr,
                 "input_scaling": input_scaling,
                 "bias_scaling": bias_scaling,
@@ -110,9 +148,28 @@ class OscillatorReservoir(Node):
         self.nodes = initialize_nodes(self)
     
 def initialize_nodes(reservoir: Node):
-    return [Oscillator(timesteps=reservoir.timesteps) for _ in range(reservoir.hypers['units'])]
+    """
+    Initialize oscillator nodes for the reservoir.
+
+    Parameters:
+        reservoir (Node): The reservoir node.
+
+    Returns:
+        List: List of initialized oscillator nodes.
+    """
+    return [Oscillator(reservoir.timesteps, reservoir.delay, reservoir.initial_values) for _ in range(reservoir.units)]
 
 def forward_reservoir(reservoir: Node, x: np.ndarray) -> np.ndarray:
+    """
+    Compute the next state's of each oscillator node based on the previous state and the input with weighting and noise.
+
+    Parameters:
+        reservoir (Node): The reservoir node.
+        x (np.ndarray): Input data.
+
+    Returns:
+        np.ndarray: States of each node for the timestep.
+    """
     states = np.zeros((len(reservoir.nodes), x.shape[0]))
 
     # Calculate pre_state
