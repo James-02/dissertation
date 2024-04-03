@@ -1,5 +1,8 @@
 from multiprocessing import Pool
 
+from typing import Optional
+
+import os
 import time
 import numpy as np
 import reservoirpy as rpy
@@ -13,6 +16,8 @@ from utils.visualisation import plot_states
 from utils.logger import Logger
 
 SEED = 1337
+RESULTS_PATH = "results/training"
+
 rpy.set_seed(SEED)
 rpy.verbosity(1)
 
@@ -113,7 +118,38 @@ def log_metrics(metrics: dict):
     logger.info(f"F1: {metrics['f1']:.3f}")
     logger.info("---------------------------------")
 
-def classification(use_oscillator=True, use_multiprocessing=True, plot=False):
+def save_states_to_file(file_path: str, states: np.ndarray):
+    """
+    Save the states array to a file using NumPy's save function.
+
+    Parameters:
+        file_path (str): The file path to save the states array.
+        states (np.ndarray): The array containing the states to be saved.
+    """
+    try:
+        np.save(file=os.path.join(RESULTS_PATH, file_path), arr=states)
+        logger.info(f"Saved {len(states)} states to {file_path}")
+    except Exception as e:
+        logger.error(f"Error saving states to file: {e}")
+
+def load_states_from_file(file_path: str) -> Optional[np.ndarray]:
+    """
+    Load the states array from a file using NumPy's load function.
+
+    Parameters:
+        file_path (str): The file path to load the states array from.
+
+    Returns:
+        np.ndarray: The array containing the loaded states data, or None if loading fails.
+    """
+    try:
+        return np.load(file=os.path.join(RESULTS_PATH, file_path))
+    except Exception as e:
+        logger.error(f"Error loading states from file: {e}")
+        return None
+
+
+def classification(use_oscillator: bool = True, use_multiprocessing: bool = True, plot: bool = False, save_states: bool = False, load_states: bool = True):
     """
     Perform classification using reservoir computing.
 
@@ -121,6 +157,8 @@ def classification(use_oscillator=True, use_multiprocessing=True, plot=False):
         use_oscillator (bool): Flag indicating whether to use oscillator reservoir.
         use_multiprocessing (bool): Flag indicating whether to use multiprocessing.
         plot (bool): Flag indicating whether to plot a single instance's states and return.
+        save_states (bool): Flag indicating whether to save trained states to a .npz file
+        load_states (bool): Flag indicating whether to attempt to load states from a .npz file
 
     Returns:
         dict: Dictionary containing performance metrics.
@@ -133,8 +171,9 @@ def classification(use_oscillator=True, use_multiprocessing=True, plot=False):
 
     # Use the oscillator node as the reservoir if the flag is set
     nodes = 10
+    instances = len(X_train)
     timesteps = X_train[0].shape[0]
-    reservoir = OscillatorReservoir(units=nodes, timesteps=timesteps) if not use_oscillator else Reservoir(100, sr=0.9, lr=0.1)
+    reservoir = OscillatorReservoir(units=nodes, timesteps=timesteps) if use_oscillator else Reservoir(500, sr=0.9, lr=0.1)
 
     # Initialize reservoir and readout
     readout = Ridge(ridge=1e-5)
@@ -145,11 +184,24 @@ def classification(use_oscillator=True, use_multiprocessing=True, plot=False):
         plot_states(reservoir.run(X_train[0]))
         return
 
-    logger.info(f"Training Reservoir of {nodes} nodes with {len(X_train)} instances")
-    start = time.time()
-    states_train = train(X_train, reservoir, use_multiprocessing)
-    end = time.time()
-    logger.debug(f"Training Time Elapsed: {str(round(end - start, 4))}s")
+    # try to load states if they exist
+    if load_states:
+        file = f"states-{reservoir.name}-{nodes}-{instances}.npy"
+        logger.debug(f"Attempting to load states from {file}")
+        states_train = load_states_from_file(file)
+        if states_train is not None:
+            logger.info(f"Loaded {len(states_train)} states from {file}")
+
+    # train states if could not be loaded
+    if states_train is None:
+        logger.info(f"Training Reservoir of {nodes} nodes with {instances} instances")
+        start = time.time()
+        states_train = train(X_train, reservoir, use_multiprocessing)
+        end = time.time()
+        logger.debug(f"Training Time Elapsed: {str(round(end - start, 4))}s")
+
+        if save_states:
+            save_states_to_file(f"states-{reservoir.name}-{nodes}-{instances}", states_train)
 
     # Fitting
     logger.info(f"Fitting readout layer with {len(states_train)} states")
@@ -171,6 +223,9 @@ def classification(use_oscillator=True, use_multiprocessing=True, plot=False):
     # produce classification report
     log_metrics(metrics)
 
+    return metrics
+
+
 if __name__ == "__main__":
-    logger = Logger(name="classification", level=1)
-    classification(use_oscillator=True, use_multiprocessing=True, plot=False)
+    logger = Logger(name=__name__, level=1)
+    classification(use_oscillator=True, use_multiprocessing=True, plot=False, save_states=True, load_states=True)
