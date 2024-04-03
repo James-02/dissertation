@@ -33,7 +33,7 @@ class DataLoader:
             test_file (str, optional): Filename of the testing data file. Defaults to "ecg_test.csv".
             save_file (str, optional): Filename to save preprocessed data. Defaults to "ecg_data.npz".
         """
-        self.logger = Logger(name="preprocessing", level=log_level)
+        self.logger = Logger(name=__name__, level=log_level)
 
         self.data_path = os.path.join(ROOT_DIR, data_dir)
         self.train_file_path = os.path.join(self.data_path, train_file)
@@ -68,6 +68,11 @@ class DataLoader:
 
         self.logger.debug(f"Limiting instances to {rows} rows")
         X_limited, Y_limited = self._limit_instances(X_balanced, Y_balanced, rows)
+
+        num_rows = X_limited.shape[0]
+        if num_rows < rows:
+            self.logger.warning(f"The {rows} rows requested were capped at {num_rows} rows to keep classes balanced.")
+
 
         self.logger.debug("Splitting dataset into training and testing sets")
         X_train, X_test, Y_train, Y_test = self._train_test_split(X_limited, Y_limited, test_size=test_ratio, random_state=42)
