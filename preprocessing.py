@@ -22,8 +22,20 @@ def load_ecg_data(repeat_targets: bool = False, encode_labels: bool = True,
         tuple: A tuple containing preprocessed training and testing data (X_train, Y_train, X_test, Y_test).
     """
     X_train, Y_train, X_test, Y_test = _load_ecg_data()
-    X_train, Y_train = _preprocess_data(X_train, Y_train, encode_labels, normalize, repeat_targets, class_size)
-    X_test, Y_test = _preprocess_data(X_test, Y_test, encode_labels, normalize, repeat_targets, class_size)
+
+    # concatenate training and test sets
+    X = np.concatenate((X_train, X_test))
+    Y = np.concatenate((Y_train, Y_test))
+
+    # preprocess as one dataset
+    X, Y = _preprocess_data(X, Y, encode_labels, normalize, repeat_targets, class_size)
+    
+    # split into training and test sets
+    idx = int(len(X) * 0.8)
+    X_train = X[:idx]
+    Y_train = Y[:idx]
+    X_test = X[idx:]
+    Y_test = Y[idx:]
 
     return X_train, Y_train, X_test, Y_test
 
