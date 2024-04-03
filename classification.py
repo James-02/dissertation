@@ -8,11 +8,13 @@ from reservoirpy.nodes import Reservoir, Ridge
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 
 from reservoir.reservoir import OscillatorReservoir
-from preprocessing import load_ecg_data
-from visualisation import plot_states
+from utils.preprocessing import DataLoader
+from utils.visualisation import plot_states
+from utils.logger import Logger
 
 SEED = 1337
 rpy.set_seed(SEED)
+rpy.verbosity(1)
 
 def evaluation(Y_true, Y_pred):
     """
@@ -101,6 +103,16 @@ def predict(X_test, reservoir, readout, use_multiprocessing):
     else:
         return [__predict_reservoir((x, reservoir, readout)) for x in X_test]
 
+def log_metrics(metrics: dict):
+    """Log performance metrics as a classification report"""
+    logger.info("----- Classification Report -----")
+    logger.info(f"Accuracy: {metrics['accuracy']:.3f}%")
+    logger.info(f"MSE: {metrics['mse']:.3f}")
+    logger.info(f"Recall: {metrics['recall']:.3f}")
+    logger.info(f"Precision: {metrics['precision']:.3f}")
+    logger.info(f"F1: {metrics['f1']:.3f}")
+    logger.info("---------------------------------")
+
 def classification(use_oscillator=True, use_multiprocessing=True, plot=False):
     """
     Perform classification using reservoir computing.
@@ -114,47 +126,51 @@ def classification(use_oscillator=True, use_multiprocessing=True, plot=False):
         dict: Dictionary containing performance metrics.
     """
     # Load dataset
-    X_train, Y_train, X_test, Y_test = load_ecg_data(class_size=1)
-    timesteps = X_train[0].shape[0]
+    data_loader = DataLoader()
+    X_train, Y_train, X_test, Y_test = data_loader.load_ecg_data(rows=100, test_ratio=0.3, normalize=True, encode_labels=True)
+
+    data_loader.log_dataset_info(X_train, Y_train, X_test, Y_test)
 
     # Use the oscillator node as the reservoir if the flag is set
-    reservoir = OscillatorReservoir(units=10, timesteps=timesteps) if use_oscillator else Reservoir(100, sr=0.9, lr=0.1)
+    nodes = 10
+    timesteps = X_train[0].shape[0]
+    reservoir = OscillatorReservoir(units=nodes, timesteps=timesteps) if not use_oscillator else Reservoir(100, sr=0.9, lr=0.1)
 
     # Initialize reservoir and readout
     readout = Ridge(ridge=1e-5)
 
     # Training
     if plot:
+        logger.info("Plotting states of X_train[0]")
         plot_states(reservoir.run(X_train[0]))
         return
 
+    logger.info(f"Training Reservoir of {nodes} nodes with {len(X_train)} instances")
     start = time.time()
     states_train = train(X_train, reservoir, use_multiprocessing)
     end = time.time()
-    print(f"Training Time: {str(end - start)}s")
+    logger.debug(f"Training Time Elapsed: {str(round(end - start, 4))}s")
 
     # Fitting
-    print(f"Fitting {len(states_train)} states")
-    print(states_train[0].shape)
+    logger.info(f"Fitting readout layer with {len(states_train)} states")
     readout.fit(states_train, Y_train)
 
     # Predicting
-    print(f"Predicting using {len(X_test)} instances.")
+    logger.info(f"Predicting with {len(X_test)} instances.")
     start = time.time()
     Y_pred = predict(X_test, reservoir, readout, use_multiprocessing)
     end = time.time()
-    print(f"Prediction Time: {str(end - start)}s")
+    logger.debug(f"Prediction Time Elapsed: {str(round(end - start, 4))}s")
 
     # Calculate performance metrics
+    logger.info("Calculating model performance metrics")
     Y_test_class = np.array([np.argmax(y_t) for y_t in Y_test])
     Y_pred_class = np.array([np.argmax(y_p) for y_p in Y_pred])
     metrics = evaluation(Y_test_class, Y_pred_class)
 
-    print(f"Accuracy: {metrics['accuracy']}")
-    print(f"MSE: {metrics['mse']}")
-    print(f"Recall: {metrics['recall']}")
-    print(f"Precision: {metrics['precision']}")
-    print(f"F1: {metrics['f1']}")
+    # produce classification report
+    log_metrics(metrics)
 
 if __name__ == "__main__":
-    classification(use_oscillator=True, use_multiprocessing=True, plot=True)
+    logger = Logger(name="classification", level=1)
+    classification(use_oscillator=True, use_multiprocessing=True, plot=False)

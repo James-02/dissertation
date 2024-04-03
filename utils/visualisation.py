@@ -17,7 +17,7 @@ def plot_ecg(time, signal, idx):
     plt.legend([classes[idx // len(classes)]])
 
     plt.tight_layout()
-    plt.savefig(f"figures/ecg/ecg-signal-{str(idx)}.png", bbox_inches="tight", dpi=500)
+    plt.savefig(f"results/ecg/ecg-signal-{str(idx)}.png", bbox_inches="tight", dpi=500)
 
 
 def plot_ecg_gif(time, signal, idx):
@@ -49,7 +49,7 @@ def plot_ecg_gif(time, signal, idx):
     ani = FuncAnimation(fig, update, frames=len(signal), repeat=False, interval=800)
 
     # Save animation as GIF
-    ani.save(f'figures/ecg/ecg-animation-{idx}.gif', writer="pillow", fps=60)    
+    ani.save(f'results/ecg/ecg-animation-{idx}.gif', writer="pillow", fps=60)    
 
 def plot_states_gif(time, states):
     # Create a figure and axis objects
@@ -85,7 +85,7 @@ def plot_states_gif(time, states):
     ani = FuncAnimation(fig, update, frames=len(states), repeat=False, interval=800)
 
     # Save animation as GIF
-    ani.save('figures/states/states-animation.gif', writer="pillow", fps=60)
+    ani.save('results/states/states-animation.gif', writer="pillow", fps=60)
 
 def plot_oscillations(time, states):
     plt.figure(figsize=(6, 6))
@@ -102,7 +102,7 @@ def plot_oscillations(time, states):
 
     plt.tight_layout()
     plt.show()
-    plt.savefig("figures/states/oscillations.png", bbox_inches="tight", dpi=800)
+    plt.savefig("results/states/oscillations.png", bbox_inches="tight", dpi=800)
 
 def plot_states(states):
     timesteps = len(states)
@@ -121,7 +121,7 @@ def plot_states(states):
     plt.tight_layout()
     plt.show()
 
-    plt.savefig("figures/states/states.png", bbox_inches="tight", dpi=800)
+    plt.savefig("results/states/states.png", bbox_inches="tight", dpi=800)
 
 def plot_data_distribution(data):
     fig, ax = plt.subplots(figsize=(16, 8))
@@ -133,4 +133,4 @@ def plot_data_distribution(data):
            autopct='%1.1f%%', 
            colors=['red', 'orange', 'blue', 'magenta', 'cyan'])
 
-    plt.savefig("figures/preprocessing/original-class-distribution.png", dpi=800, bbox_inches="tight")
+    plt.savefig("results/preprocessing/original-class-distribution.png", dpi=800, bbox_inches="tight")
