@@ -27,18 +27,18 @@ class OscillatorReservoir(Node):
         coupling: float = 1e-3,
         sr: Optional[float] = None,
         input_bias: bool = True,
-        noise_rc: float = 0.3,
-        noise_in: float = 0.3,
-        noise_fb: float = 0.3,
+        noise_rc: float = 0.1,
+        noise_in: float = 0.1,
+        noise_fb: float = 0.1,
         noise_type: str = "normal",
         noise_kwargs: Dict = None,
         input_scaling: Union[float, Sequence] = 1.0,
         bias_scaling: float = 1.0,
         fb_scaling: Union[float, Sequence] = 1.0,
-        input_connectivity: float = 0.5,
+        input_connectivity: float = 0.1,
         rc_connectivity: float = 0.1,
         fb_connectivity: float = 0.1,
-        Win: Union[Weights, Callable] = normal,
+        Win: Union[Weights, Callable] = bernoulli,
         W: Union[Weights, Callable] = normal,
         Wfb: Union[Weights, Callable] = bernoulli,
         bias: Union[Weights, Callable] = bernoulli,
@@ -50,7 +50,7 @@ class OscillatorReservoir(Node):
         """
         Initialize an oscillator reservoir.
 
-        Parameters:
+        Args:
             units (int, optional): Number of oscillator units in the reservoir. Defaults to None.
             timesteps (int, optional): Number of timesteps in the reservoir. Defaults to None.
             delay (float, optional): Delay parameter of the oscillator nodes. Defaults to 10.
@@ -151,7 +151,7 @@ def initialize_nodes(reservoir: Node):
     """
     Initialize oscillator nodes for the reservoir.
 
-    Parameters:
+    Args:
         reservoir (Node): The reservoir node.
 
     Returns:
@@ -163,7 +163,7 @@ def forward_reservoir(reservoir: Node, x: np.ndarray) -> np.ndarray:
     """
     Compute the next state's of each oscillator node based on the previous state and the input with weighting and noise.
 
-    Parameters:
+    Args:
         reservoir (Node): The reservoir node.
         x (np.ndarray): Input data.
 
