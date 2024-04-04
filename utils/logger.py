@@ -3,7 +3,7 @@ import logging
 class Logger:
     """A wrapper class for the Python logging module with colored output."""
 
-    LOG_LEVELS = {
+    log_levels = {
         0 : logging.NOTSET,
         1 : logging.DEBUG,
         2 : logging.INFO,
@@ -12,7 +12,7 @@ class Logger:
         5 : logging.CRITICAL
     }
     
-    def __init__(self, name=__name__, level=1, datefmt='%Y-%m-%d %H:%M:%S', log_file=None):
+    def __init__(self, name=__name__, level=log_levels[1], datefmt='%Y-%m-%d %H:%M:%S', log_file=None):
         """
         Initialize the Logger instance.
 
@@ -24,7 +24,7 @@ class Logger:
         """
         self.log_file = log_file
         self.logger = logging.getLogger(name)
-        self.logger.setLevel(self.LOG_LEVELS.get(level))
+        self.logger.setLevel(self.log_levels.get(level))
         self._configure_handler(datefmt, self.log_file)
 
     def _configure_handler(self, datefmt, log_file):

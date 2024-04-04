@@ -6,23 +6,16 @@ import pandas as pd
 
 from utils.logger import Logger
 
-# Global variable
-ROOT_DIR = 'data'
+DEFAULT_LOG_LEVEL = 1
 
 class DataLoader:
     """
     Class for loading and preprocessing ECG dataset.
-
-    Attributes:
-        log_level (int): Logging level for the class.
-        data_dir (str): Directory containing ECG data files.
-        train_file (str): Filename of the training data file.
-        test_file (str): Filename of the testing data file.
-        save_file (str): Filename to save preprocessed data.
-        logger (Logger): Logger instance for logging.
     """
 
-    def __init__(self, log_level: int = 1, data_dir: str = "ecg", train_file: str = "ecg_train.csv", test_file: str = "ecg_test.csv", save_file: str = "ecg_data.npz"):
+    def __init__(self, log_level: int = DEFAULT_LOG_LEVEL, log_file: str = None, seed: int = None,
+                 data_dir: str = "data/ecg", train_file: str = "ecg_train.csv", 
+                 test_file: str = "ecg_test.csv", save_file: str = "ecg_data.npz"):
         """
         Initialize the ECGDataLoader with directory paths and filenames.
 
@@ -32,13 +25,16 @@ class DataLoader:
             train_file (str, optional): Filename of the training data file. Defaults to "ecg_train.csv".
             test_file (str, optional): Filename of the testing data file. Defaults to "ecg_test.csv".
             save_file (str, optional): Filename to save preprocessed data. Defaults to "ecg_data.npz".
+            seed (int, optional): Random state seed
         """
-        self.logger = Logger(name=__name__, level=log_level)
+        self.logger = Logger(name=__name__, level=log_level, log_file=log_file)
 
-        self.data_path = os.path.join(ROOT_DIR, data_dir)
+        self.data_path = data_dir
         self.train_file_path = os.path.join(self.data_path, train_file)
         self.test_file_path = os.path.join(self.data_path, test_file)
         self.save_file_path = os.path.join(self.data_path, save_file)
+
+        np.random.seed(seed)
 
     def load_ecg_data(self, rows: int, test_ratio: float = 0.2, encode_labels: bool = True, normalize: bool = True, repeat_targets: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
@@ -73,9 +69,8 @@ class DataLoader:
         if num_rows < rows:
             self.logger.warning(f"The {rows} rows requested were capped at {num_rows} rows to keep classes balanced.")
 
-
         self.logger.debug("Splitting dataset into training and testing sets")
-        X_train, X_test, Y_train, Y_test = self._train_test_split(X_limited, Y_limited, test_size=test_ratio, random_state=42)
+        X_train, Y_train, X_test, Y_test = self._train_test_split(X_limited, Y_limited, test_size=test_ratio)
 
         if encode_labels:
             num_classes = len(np.unique(Y_loaded))
@@ -189,7 +184,7 @@ class DataLoader:
             self.logger.debug(f"Saving preprocessed dataset to: {self.save_file_path}")
             return X_loaded, Y_loaded
 
-    def _train_test_split(self, X: np.ndarray, Y: np.ndarray, test_size: float, random_state: int = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _train_test_split(self, X: np.ndarray, Y: np.ndarray, test_size: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Split dataset X and corresponding labels Y into training and testing sets with balanced classes.
 
@@ -197,7 +192,6 @@ class DataLoader:
             X (np.ndarray): Feature data.
             Y (np.ndarray): Label data.
             test_size (float): Ratio of testing data to total data.
-            random_state (int, optional): Random seed for shuffling. Defaults to None.
 
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Split feature data and label data.
@@ -214,11 +208,10 @@ class DataLoader:
             test_indices.extend(selected_indices)
             train_indices.extend(np.setdiff1d(class_indices, selected_indices))
 
-        np.random.seed(random_state)
         np.random.shuffle(train_indices)
         np.random.shuffle(test_indices)
 
-        return X[train_indices], X[test_indices], Y[train_indices], Y[test_indices]
+        return X[train_indices], Y[train_indices], X[test_indices], Y[test_indices]
 
     def _one_hot_encode(self, labels: np.ndarray, num_classes: int) -> np.ndarray:
         """
