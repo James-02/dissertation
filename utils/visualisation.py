@@ -1,136 +1,82 @@
+from typing import List
+
+import os
+
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-import numpy as np
 import seaborn as sns
+import numpy as np
 
-sns.set_style("whitegrid")
+class Visualizer:
+    def __init__(self, results_path: str = "results/", style: str = "whitegrid", dpi: int = 800):
+        """
+        Initialize the Visualizer.
 
-def plot_ecg(time, signal, idx):
-    classes = ['Normal','Unknown','Ventricular ectopic','Supraventricular ectopic', 'Fusion']
-    plt.figure(figsize=(10, 6))
+        Args:
+            results_path (str): Path to store the visualizations.
+            style (str): Seaborn style to apply.
+            dpi (int): Dots per inch for figure resolution.
+        """
+        self.results_path = results_path
+        self.dpi = dpi
 
-    plt.plot(time, signal)
+        sns.set_style(style)
 
-    plt.xlabel('Time')
-    plt.ylabel('Signal')
-    plt.title('ECG Signal Evolution')
-    plt.legend([classes[idx // len(classes)]])
+    def _save_figure(self, filename: str):
+        """
+        Save the current figure to a file.
 
-    plt.tight_layout()
-    plt.savefig(f"results/ecg/ecg-signal-{str(idx)}.png", bbox_inches="tight", dpi=500)
+        Args:
+            filename (str): Name of the file to save.
+        """
+        plt.savefig(os.path.join(self.results_path, filename), bbox_inches="tight", dpi=self.dpi)
 
+    def plot_states(self, states: np.ndarray, labels: List[str], title: str = "States", xlabel: str = "Time", 
+             ylabel: str = "State", filename: str = "states.png", legend: bool = True, show: bool = True):
+        """
+        Plot a generic line graph.
 
-def plot_ecg_gif(time, signal, idx):
-    classes = ['Normal','Unknown','Ventricular ectopic','Supraventricular ectopic', 'Fusion']
-    # Create a figure and axis objects
-    fig, ax = plt.subplots(figsize=(10, 6))
+        Args:
+            states (np.ndarray): Time-series states to plot.
+            labels (List[str]): Labels for the data.
+            title (str): Title of the plot.
+            xlabel (str): Label for the x-axis.
+            ylabel (str): Label for the y-axis.
+            filename (str): Name of the file to save.
+            legend (bool): Whether to show the legend.
+            show
+        """
+        timesteps = len(states)
+        time = np.linspace(0, timesteps, timesteps)
+        plt.figure(figsize=(10, 6))
+        for i, label in enumerate(labels):
+            plt.plot(time, states[:, i], label=label)
 
-    # Set labels, title, and legend
-    ax.set_xlabel('Time')
-    ax.set_ylabel('ECG Signal')
-    ax.set_title('ECG Signal Over Time')
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
+        plt.tight_layout()
 
-    # Plot initial states and store lines in variables
-    signal_, = ax.plot(time[0], signal[0, 0], label='A')
-    ax.legend(["Normal"])
+        if legend:
+            plt.legend()
+        self._save_figure(filename=os.path.join("states/", filename))
+    
+        if show:
+            plt.show()
 
-    # Set x-axis and y-axis limits
-    ax.set_xlim(0, time[-1])
-    ax.set_ylim(np.min(signal), np.max(signal))
+    def plot_data_distribution(self, counts: list, labels: list, filename: str = "data-distribution.png", show: bool = True):
+        """
+        Plot the distribution of data classes.
 
-    fig.tight_layout()
-
-    def update(frame):
-        # Update data of the lines representing the states
-        signal_.set_data(time[:frame], signal[:frame])
-        return [signal_]
-
-    # Create animation
-    ani = FuncAnimation(fig, update, frames=len(signal), repeat=False, interval=800)
-
-    # Save animation as GIF
-    ani.save(f'results/ecg/ecg-animation-{idx}.gif', writer="pillow", fps=60)    
-
-def plot_states_gif(time, states):
-    # Create a figure and axis objects
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    # Set labels, title, and legend
-    ax.set_xlabel('Time')
-    ax.set_ylabel('State')
-    ax.set_title('Oscillator States Evolution')
-
-    # Plot initial states and store lines in variables
-    a, = ax.plot(time[0], states[0, 0], label='A')
-    i, = ax.plot(time[0], states[0, 1], label='I')
-    hi, = ax.plot(time[0], states[0, 2], label='Hi')
-    he, = ax.plot(time[0], states[0, 3], label='He')
-    ax.legend(["A", "I", "Hi", "He"])
-
-    # Set x-axis and y-axis limits
-    ax.set_xlim(0, time[-1])
-    ax.set_ylim(np.min(states), np.max(states))
-
-    fig.tight_layout()
-
-    def update(frame):
-        # Update data of the lines representing the states
-        a.set_data(time[:frame], states[:frame, 0])
-        i.set_data(time[:frame], states[:frame, 1])
-        hi.set_data(time[:frame], states[:frame, 2])
-        he.set_data(time[:frame], states[:frame, 3])
-        return [a, i, hi, he]
-
-    # Create animation
-    ani = FuncAnimation(fig, update, frames=len(states), repeat=False, interval=800)
-
-    # Save animation as GIF
-    ani.save('results/states/states-animation.gif', writer="pillow", fps=60)
-
-def plot_oscillations(time, states):
-    plt.figure(figsize=(6, 6))
-
-    plt.plot(time, states[:, 0], label='A')
-    plt.plot(time, states[:, 1], label='I')
-    plt.plot(time, states[:, 2], label='Hi')
-    plt.plot(time, states[:, 3], label='He')
-
-    plt.xlabel('Time')
-    plt.ylabel('State')
-    plt.title('Oscillator States Evolution')
-    plt.legend()
-
-    plt.tight_layout()
-    plt.show()
-    plt.savefig("results/states/oscillations.png", bbox_inches="tight", dpi=800)
-
-def plot_states(states):
-    timesteps = len(states)
-    time = np.linspace(0, timesteps, timesteps)
-
-    plt.figure(figsize=(6, 6))
-
-    for i in range(0, states.shape[1]):
-        plt.plot(time, states[:, i], label=f'Node {i+1}')
-
-    plt.xlabel('Time')
-    plt.ylabel('State')
-    plt.title('Oscillator States Evolution')
-    plt.legend()
-
-    plt.tight_layout()
-    plt.show()
-
-    plt.savefig("results/states/states.png", bbox_inches="tight", dpi=800)
-
-def plot_data_distribution(data):
-    fig, ax = plt.subplots(figsize=(16, 8))
-
-    # Plot training data distribution
-    ax.set_title('ECG Dataset Class Distribution')
-    ax.pie(data.iloc[:, -1].value_counts(), 
-           labels=['Normal', 'Unknown', 'Ventricular ectopic', 'Supraventricular ectopic', 'Fusion'], 
-           autopct='%1.1f%%', 
-           colors=['red', 'orange', 'blue', 'magenta', 'cyan'])
-
-    plt.savefig("results/preprocessing/original-class-distribution.png", dpi=800, bbox_inches="tight")
+        Args:
+            counts (list): List of counts for each class.
+            labels (list): List of labels, must align with counts.
+            filename (str): Filename to save figure to.
+            show (bool): Flag to show figure
+        """
+        _, ax = plt.subplots(figsize=(16, 8))
+        ax.set_title('ECG Dataset Class Distribution')
+        ax.pie(counts, labels=labels, autopct='%1.1f%%', colors=['red', 'orange', 'blue', 'magenta', 'cyan'])
+        self._save_figure(filename=os.path.join("preprocessing/", filename))
+    
+        if show:
+            plt.show()
