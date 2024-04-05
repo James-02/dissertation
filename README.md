@@ -9,5 +9,5 @@ python -m venv venv
 venv/bin/pip install -r requirements.txt
 
 # run danino oscillator model simulator
-venv/bin/python ./classification.py
+venv/bin/python ./main.py
 ```
