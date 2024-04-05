@@ -100,7 +100,7 @@ class Oscillator():
         """Reset the states of the oscillator to the initial conditions."""
         return np.array(self.hypers['initial_conditions']).reshape(1, -1)
 
-    def _update_history(self, state):
+    def _update_history(self, state: np.ndarray):
         """
         Append a new state to the states history vector.
 
@@ -109,16 +109,19 @@ class Oscillator():
         """
         self._states = np.vstack((self._states[-(self._max_states - 1):], state))
 
-    def _history(self, t):
+    def _history(self, t: float, idx: int = None):
         """
         Return the interpolated history of states at time t.
 
         Args:
             t (float): Time at which the history is requested.
+            idx (int, Optional): Index of single value to interpolate.
 
         Returns:
             np.ndarray: Interpolated history of states at time t.
         """
         if abs(t) > self._states.shape[0]:
-            return self._states[0]
-        return interpolate_history(t, self._states)
+            if idx is None:
+                return self._states[0]
+            return self._states[0, idx]
+        return interpolate_history(t, self._states, idx)

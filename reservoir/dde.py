@@ -43,7 +43,7 @@ def dde_system(Y: np.ndarray, t: float, history: Callable, params: dict) -> np.n
     A, I, Hi, He = Y
 
     # Value of Hi at 'delay' timesteps in the past
-    Hlag = history(t - params['delay'])[2]
+    Hlag = history(t - params['delay'], 2)
 
     P = (params['del_'] + params['alpha'] * Hlag**2) / (1 + params['k1'] * Hlag**2)
 
@@ -51,22 +51,29 @@ def dde_system(Y: np.ndarray, t: float, history: Callable, params: dict) -> np.n
     Hetot = He + params['input']
 
     # equations to calculate the state of the genetic oscillator for the timepoint t
-    dAdt = params['CA'] * (1 - (params['d']/params['d0'])**4) * P - params['gammaA'] * A / (1 + params['f'] * (A + I))
-    dIdt = params['CI'] * (1 - (params['d']/params['d0'])**4) * P - params['gammaI'] * I / (1 + params['f'] * (A + I))
+    dAdt = params['CA'] * (1 - (params['d'] / params['d0'])**4) * P - params['gammaA'] * A / (1 + params['f'] * (A + I))
+    dIdt = params['CI'] * (1 - (params['d'] / params['d0'])**4) * P - params['gammaI'] * I / (1 + params['f'] * (A + I))
     dHidt = params['b'] * I / (1 + params['k'] * I) - params['gammaH'] * A * Hi / (1 + params['g'] * A) + params['D'] * (Hetot - Hi)
     dHedt = -params['d'] / (1 - params['d']) * params['D'] * (He - Hi) - params['mu'] * He
     
     return [dAdt, dIdt, dHidt, dHedt]
 
-def interpolate_history(t: float, states: np.ndarray) -> np.ndarray:
+def interpolate_history(t: float, states: np.ndarray, idx: int) -> np.ndarray:
     """Interpolates history values at given time points.
 
     Args:
         t (float): Time point to interpolate history at.
         states (np.ndarray): Array of historical states.
+        idx (int, Optional): Index to interpolate a single value.
 
     Returns:
         List: Interpolated history values.
     """
+    num_variables = states.shape[1]
     indices = np.arange(-states.shape[0] + 1, 1)
-    return [np.interp(t, indices, states[:, i]) for i in range(states.shape[1])]
+
+    if idx is None:
+        # Interpolate all system values
+        return [np.interp(t, indices, states[:, i]) for i in range(num_variables)]
+    # Interpolate just the signal
+    return np.interp(t, indices, states[:, idx])
