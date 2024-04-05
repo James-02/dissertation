@@ -70,37 +70,37 @@ class Classifier:
         states = self.reservoir.run(x)
         return self.readout.run(states[-1, np.newaxis])
 
-    def train(self, X_train: np.ndarray, use_multiprocessing: bool):
+    def train(self, X_train: np.ndarray, processes: int):
         """
         Train the reservoir using the training instances.
 
         Args:
             X_train (np.ndarray): Training data features.
-            use_multiprocessing (bool): Whether to use multiprocessing.
+            processes (int): Processes to use. (A value of 0 will use the maximum)
 
         Returns:
             list: List of trained states.
         """
-        if use_multiprocessing:
-            with Pool() as pool:
+        if processes is None or processes > 1:
+            with Pool(processes=processes) as pool:
                 trained_states = pool.map(self._train_reservoir, [x for x in X_train])
         else:
             trained_states = [self._train_reservoir(x) for x in X_train]
         return [state[-1, np.newaxis] for state in trained_states]
 
-    def predict(self, X_test: np.ndarray, use_multiprocessing: bool):
+    def predict(self, X_test: np.ndarray, processes: int):
         """
         Perform prediction by training the reservoir on the test instances and then training the readout on the states produced.
 
         Args:
             X_test (np.ndarray): Test data features.
-            use_multiprocessing (bool): Whether to use multiprocessing.
+            processes (int): Processes to use. (A value of 0 will use the maximum)
 
         Returns:
             list: List of predicted states.
         """
-        if use_multiprocessing:
-            with Pool() as pool:
+        if processes is None or processes > 1:
+            with Pool(processes=processes) as pool:
                 predicted_states = pool.map(self._predict_reservoir, [x for x in X_test])
             return predicted_states
         else:
@@ -151,12 +151,12 @@ class Classifier:
             self.logger.error(f"Error loading states from file: {e}")
             return None
 
-    def classify(self, use_multiprocessing: bool = True, save_states: bool = False, load_states: bool = False):
+    def classify(self, processes: int = 0, save_states: bool = False, load_states: bool = False):
         """
         Perform classification by training the reservoir, and then predicting testing instances' classes using the readout layer.
 
         Args:
-            use_multiprocessing (bool): Whether to use multiprocessing.
+            processes (int): Processes to use. (A value of 0 will use the maximum allowed by the system)
             save_states (bool): Whether to save states.
             load_states (bool): Whether to load states.
 
@@ -178,7 +178,7 @@ class Classifier:
         if trained_states is None:
             self.logger.info(f"Training Reservoir of {self.reservoir.units} nodes with {training_instances} instances")
             start = time.time()
-            trained_states = self.train(self.X_train, use_multiprocessing)
+            trained_states = self.train(self.X_train, processes)
             end = time.time()
             self.logger.debug(f"Training Time Elapsed: {str(round(end - start, 4))}s")
 
@@ -192,7 +192,7 @@ class Classifier:
         # Predicting
         self.logger.info(f"Predicting with {testing_instances} instances.")
         start = time.time()
-        Y_pred = self.predict(self.X_test, use_multiprocessing)
+        Y_pred = self.predict(self.X_test, processes)
         end = time.time()
         self.logger.debug(f"Prediction Time Elapsed: {str(round(end - start, 4))}s")
 
