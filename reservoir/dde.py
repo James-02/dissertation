@@ -36,27 +36,27 @@ def dde_system(Y: np.ndarray, t: float, history: Callable, params: dict) -> np.n
         params (dict): Dictionary containing parameters required for the system dynamics.
 
     Returns:
-        List: List containing the derivatives of each variable in the system
-        at the given time point `t`.
+        np.ndarray: Derivatives of each variable in the system at the given time point `t`.
     """
-    # dde system variables representing two coupled genes (A, I) and the internal/external signals of the cell (Hi, He)
+    # Extract system variables
     A, I, Hi, He = Y
-
+    
     # Value of Hi at 'delay' timesteps in the past
-    Hlag = history(t - params['delay'], 2)
+    delayed_Hi = history(t - params['delay'], 2) ** 2
+    
+    # Precompute constant terms
+    decay = 1 - (params['d'] / params['d0']) ** 4
+    gene_promoter = (params['del_'] + params['alpha'] * delayed_Hi) / (1 + params['k1'] * delayed_Hi)
+    input_denominator = 1 + params['f'] * (A + I)
+    total_He = He + params['input']
 
-    P = (params['del_'] + params['alpha'] * Hlag**2) / (1 + params['k1'] * Hlag**2)
-
-    # external input signal
-    Hetot = He + params['input']
-
-    # equations to calculate the state of the genetic oscillator for the timepoint t
-    dAdt = params['CA'] * (1 - (params['d'] / params['d0'])**4) * P - params['gammaA'] * A / (1 + params['f'] * (A + I))
-    dIdt = params['CI'] * (1 - (params['d'] / params['d0'])**4) * P - params['gammaI'] * I / (1 + params['f'] * (A + I))
-    dHidt = params['b'] * I / (1 + params['k'] * I) - params['gammaH'] * A * Hi / (1 + params['g'] * A) + params['D'] * (Hetot - Hi)
+    # Compute derivatives
+    dAdt = params['CA'] * decay * gene_promoter - params['gammaA'] * A / input_denominator
+    dIdt = params['CI'] * decay * gene_promoter - params['gammaI'] * I / input_denominator
+    dHidt = params['b'] * I / (1 + params['k'] * I) - params['gammaH'] * A * Hi / (1 + params['g'] * A) + params['D'] * (total_He - Hi)
     dHedt = -params['d'] / (1 - params['d']) * params['D'] * (He - Hi) - params['mu'] * He
     
-    return [dAdt, dIdt, dHidt, dHedt]
+    return np.array([dAdt, dIdt, dHidt, dHedt])
 
 def interpolate_history(t: float, states: np.ndarray, idx: int) -> np.ndarray:
     """Interpolates history values at given time points.
