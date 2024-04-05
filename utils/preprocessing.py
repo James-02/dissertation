@@ -17,15 +17,16 @@ class DataLoader:
                  data_dir: str = "data/ecg", train_file: str = "ecg_train.csv", 
                  test_file: str = "ecg_test.csv", save_file: str = "ecg_data.npz"):
         """
-        Initialize the ECGDataLoader with directory paths and filenames.
+        Initialize the Data Loader with directory paths and filenames.
 
         Args:
             log_level (int, optional): Logging level for the class. Defaults to 1.
+            log_file (str, optional): File path to save logs to.
+            seed (int, optional): Random state seed.
             data_dir (str, optional): Directory containing ECG data files. Defaults to "ecg".
             train_file (str, optional): Filename of the training data file. Defaults to "ecg_train.csv".
             test_file (str, optional): Filename of the testing data file. Defaults to "ecg_test.csv".
             save_file (str, optional): Filename to save preprocessed data. Defaults to "ecg_data.npz".
-            seed (int, optional): Random state seed
         """
         self.logger = Logger(name=__name__, level=log_level, log_file=log_file)
 
@@ -36,22 +37,30 @@ class DataLoader:
 
         np.random.seed(seed)
 
-    def load_ecg_data(self, rows: int, test_ratio: float = 0.2, encode_labels: bool = True, normalize: bool = True, repeat_targets: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def load_ecg_data(self, rows: int = None, test_ratio: float = 0.2, encode_labels: bool = True, 
+                      normalize: bool = True, repeat_targets: bool = False, shuffle: bool = True) \
+                        -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Load ECG dataset, preprocess, balance classes, and split into training and testing subsets.
 
         Args:
-            rows (int): Number of rows to limit the dataset to.
+            rows (int): Number of rows to limit the dataset to, defaults to all rows.
             test_ratio (float, optional): Ratio of testing data to total data. Defaults to 0.2.
             encode_labels (bool, optional): Whether to one-hot encode labels. Defaults to True.
             normalize (bool, optional): Whether to normalize the input values. Defaults to True.
             repeat_targets (bool, optional): Whether to repeat targets. Defaults to False.
+            shuffle (bool, optional): Whether to shuffle instances. Defaults to True.
 
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Tuple containing X_train, Y_train, X_test, Y_test.
         """
         self.logger.info("Loading ECG Dataset")
         X_loaded, Y_loaded = self._load_and_preprocess_data()
+
+        # If rows is not given, set to all rows
+        if rows is None:
+            rows = len(X_loaded)
+            self.logger.warning("Number of rows not specified, implicitly using all rows.")
 
         self.logger.debug(f"Loading ECG data with parameters: [rows={rows}, test_ratio={test_ratio}, encode_labels={encode_labels}, normalise={normalize}, repeat_targets={repeat_targets}]")
 
@@ -70,7 +79,7 @@ class DataLoader:
             self.logger.warning(f"The {rows} rows requested were capped at {num_rows} rows to keep classes balanced.")
 
         self.logger.debug("Splitting dataset into training and testing sets")
-        X_train, Y_train, X_test, Y_test = self._train_test_split(X_limited, Y_limited, test_size=test_ratio)
+        X_train, Y_train, X_test, Y_test = self._train_test_split(X_limited, Y_limited, test_size=test_ratio, shuffle=shuffle)
 
         if encode_labels:
             num_classes = len(np.unique(Y_loaded))
@@ -184,7 +193,7 @@ class DataLoader:
             self.logger.debug(f"Saving preprocessed dataset to: {self.save_file_path}")
             return X_loaded, Y_loaded
 
-    def _train_test_split(self, X: np.ndarray, Y: np.ndarray, test_size: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _train_test_split(self, X: np.ndarray, Y: np.ndarray, test_size: float, shuffle: bool) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Split dataset X and corresponding labels Y into training and testing sets with balanced classes.
 
@@ -192,6 +201,7 @@ class DataLoader:
             X (np.ndarray): Feature data.
             Y (np.ndarray): Label data.
             test_size (float): Ratio of testing data to total data.
+            shuffle (bool): Flag indicating whether to shuffle the data.
 
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Split feature data and label data.
@@ -208,8 +218,9 @@ class DataLoader:
             test_indices.extend(selected_indices)
             train_indices.extend(np.setdiff1d(class_indices, selected_indices))
 
-        np.random.shuffle(train_indices)
-        np.random.shuffle(test_indices)
+        if shuffle:
+            np.random.shuffle(train_indices)
+            np.random.shuffle(test_indices)
 
         return X[train_indices], Y[train_indices], X[test_indices], Y[test_indices]
 
