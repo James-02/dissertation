@@ -15,9 +15,5 @@ def weight_input(reservoir: Node, x: np.ndarray) -> np.ndarray:
 def weight_previous_state(reservoir: Node):
     r = reservoir.state().T
     noise = reservoir.noise_generator(dist=reservoir.noise_type, shape=r.shape, gain=reservoir.noise_rc)
-    return reservoir.W @ (r + noise) * 1e-6
+    return (reservoir.W @ (r + noise)) * reservoir.rc_scaling
 
-def normalize_array(array: np.ndarray, range: tuple) -> np.ndarray:
-    min_val = np.min(array)
-    max_val = np.max(array)
-    return (array - min_val) / (max_val - min_val) * (range[1] - range[0]) + range[0]

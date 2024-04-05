@@ -32,6 +32,7 @@ class OscillatorReservoir(Node):
         noise_fb: float = 0.1,
         noise_type: str = "normal",
         noise_kwargs: Dict = None,
+        rc_scaling: float = 1e-6,
         input_scaling: Union[float, Sequence] = 1.0,
         bias_scaling: float = 1.0,
         fb_scaling: Union[float, Sequence] = 1.0,
@@ -112,6 +113,7 @@ class OscillatorReservoir(Node):
                 "delay": delay,
                 "initial_values": initial_values,
                 "sr": sr,
+                "rc_scaling": rc_scaling,
                 "input_scaling": input_scaling,
                 "bias_scaling": bias_scaling,
                 "fb_scaling": fb_scaling,
@@ -129,6 +131,7 @@ class OscillatorReservoir(Node):
             initializer=partial(
                 initialize,
                 sr=sr,
+                rc_scaling=rc_scaling,
                 input_scaling=input_scaling,
                 bias_scaling=bias_scaling,
                 input_connectivity=input_connectivity,
