@@ -167,6 +167,7 @@ class Classifier:
         testing_instances = len(self.X_test)
 
         # try to load states if they exist
+        trained_states = []
         if load_states:
             file = f"states-{self.reservoir.name}-{self.reservoir.units}-{training_instances}.npy"
             self.logger.debug(f"Attempting to load states from: {file}")
@@ -175,7 +176,7 @@ class Classifier:
                 self.logger.info(f"Loaded {len(trained_states)} states from: {file}")
 
         # train states if could not be loaded
-        if trained_states is None:
+        if not trained_states:
             self.logger.info(f"Training Reservoir of {self.reservoir.units} nodes with {training_instances} instances")
             start = time.time()
             trained_states = self.train(self.X_train, processes)
