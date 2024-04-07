@@ -131,7 +131,6 @@ class OscillatorReservoir(Node):
             initializer=partial(
                 initialize,
                 sr=sr,
-                rc_scaling=rc_scaling,
                 input_scaling=input_scaling,
                 bias_scaling=bias_scaling,
                 input_connectivity=input_connectivity,

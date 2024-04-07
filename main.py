@@ -5,12 +5,13 @@ from reservoir.reservoir import OscillatorReservoir
 from reservoirpy.nodes import Reservoir, Ridge
 
 # Define global constants
-OSCILLATOR_RESERVOIR = "oscillator_reservoir"
-NEURON_RESERVOIR = "neuron_reservoir"
-NODES = 500
+NODES = 100
 SEED = 1337
 VERBOSITY = 0
 LOG_LEVEL = 1
+
+OSCILLATOR_RESERVOIR = "oscillator_reservoir"
+NEURON_RESERVOIR = "neuron_reservoir"
 
 def main(use_oscillators: bool = True, plot_states: bool = True, plot_distribution: bool = False):
     reservoir_name = OSCILLATOR_RESERVOIR if use_oscillators else NEURON_RESERVOIR
@@ -33,14 +34,19 @@ def main(use_oscillators: bool = True, plot_states: bool = True, plot_distributi
     # Initialize Reservoir
     if use_oscillators:
         reservoir = OscillatorReservoir(
-            units=NODES, 
+            units=NODES,
             timesteps=X_train[0].shape[0],
-            seed=SEED)
+            sr=1.0,
+            delay=10,
+            initial_values=[0, 100, 0, 0],
+            seed=SEED,
+            name=reservoir_name)
     else:
         reservoir = Reservoir(
             units=NODES, 
             sr=0.9, lr=0.1,
-            seed=SEED)
+            seed=SEED,
+            name=reservoir_name)
     
     # Initialize readout node
     readout = Ridge(ridge=1e-5)
@@ -52,7 +58,7 @@ def main(use_oscillators: bool = True, plot_states: bool = True, plot_distributi
         train_set=(X_train, Y_train), 
         test_set=(X_test, Y_test),
         log_level=LOG_LEVEL,
-        log_file=LOG_FILE,
+        log_file=log_file,
         seed=SEED,
         verbosity=VERBOSITY)
 
@@ -72,6 +78,7 @@ def main(use_oscillators: bool = True, plot_states: bool = True, plot_distributi
         states = reservoir.run(X_train[0])
         node_labels = [f"Node: {i}" for i in range(NODES)]
         visualizer.plot_states(states, node_labels, legend=True)
+        return
 
     # Perform classification
     metrics = classifier.classify(
@@ -83,4 +90,4 @@ def main(use_oscillators: bool = True, plot_states: bool = True, plot_distributi
     classifier.log_metrics(metrics)
 
 if __name__ == "__main__":
-    main(use_oscillators=False, plot_states=False)
+    main(use_oscillators=True, plot_states=True)

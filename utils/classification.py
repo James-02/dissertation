@@ -176,7 +176,7 @@ class Classifier:
                 self.logger.info(f"Loaded {len(trained_states)} states from: {file}")
 
         # train states if could not be loaded
-        if not trained_states:
+        if len(trained_states) == 0:
             self.logger.info(f"Training Reservoir of {self.reservoir.units} nodes with {training_instances} instances")
             start = time.time()
             trained_states = self.train(self.X_train, processes)
