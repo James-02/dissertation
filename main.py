@@ -5,16 +5,19 @@ from reservoir.reservoir import OscillatorReservoir
 from reservoirpy.nodes import Reservoir, Ridge
 
 # Define global constants
-LOG_LEVEL = 1
-LOG_FILE = "logs.txt"
-VERBOSITY = 0
+OSCILLATOR_RESERVOIR = "oscillator_reservoir"
+NEURON_RESERVOIR = "neuron_reservoir"
+NODES = 500
 SEED = 1337
-NODES = 2000
+VERBOSITY = 0
+LOG_LEVEL = 1
 
 def main(use_oscillators: bool = True, plot_states: bool = True, plot_distribution: bool = False):
+    reservoir_name = OSCILLATOR_RESERVOIR if use_oscillators else NEURON_RESERVOIR
+    log_file = f"logs/{reservoir_name}_{NODES}_nodes.log"
     data_loader = DataLoader(
         log_level=LOG_LEVEL,
-        log_file=LOG_FILE,
+        log_file=log_file,
         seed=SEED)
 
     X_train, Y_train, X_test, Y_test = data_loader.load_ecg_data(
