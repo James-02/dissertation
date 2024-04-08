@@ -4,10 +4,9 @@ from typing import Optional
 import os
 import time
 import numpy as np
-import reservoirpy
 
 from reservoirpy import Node
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, r2_score
 
 from utils.logger import Logger
 
@@ -40,10 +39,6 @@ class Classifier:
         self.X_train, self.Y_train = train_set
         self.X_test, self.Y_test = test_set
         self.results_path = "results/training"
-
-        np.random.seed(seed)
-        reservoirpy.set_seed(seed)
-        reservoirpy.verbosity(verbosity)
 
     def _train_reservoir(self, x: np.ndarray):
         """
@@ -116,6 +111,8 @@ class Classifier:
         self.logger.info("----- Classification Report -----")
         self.logger.info(f"Accuracy: {metrics['accuracy']:.3f}%")
         self.logger.info(f"MSE: {metrics['mse']:.3f}")
+        self.logger.info(f"RMSE: {metrics['rmse']:.3f}")
+        self.logger.info(f"R^2: {metrics['r_squared']:.3f}")
         self.logger.info(f"Recall: {metrics['recall']:.3f}")
         self.logger.info(f"Precision: {metrics['precision']:.3f}")
         self.logger.info(f"F1: {metrics['f1']:.3f}")
@@ -149,7 +146,7 @@ class Classifier:
             return np.load(file=os.path.join(self.results_path, file_path))
         except Exception as e:
             self.logger.error(f"Error loading states from file: {e}")
-            return None
+            return []
 
     def classify(self, processes: int = 0, save_states: bool = False, load_states: bool = False):
         """
@@ -221,7 +218,12 @@ class Classifier:
         recall = recall_score(Y_true, Y_pred, average='weighted')
         precision = precision_score(Y_true, Y_pred, average='weighted')
         mse = np.mean((Y_true - Y_pred) ** 2)
+        rmse = np.sqrt(mse)
+        r_squared = r2_score(Y_true, Y_pred)
         conf_matrix = confusion_matrix(Y_true, Y_pred)
 
-        return {"accuracy": accuracy, "f1": f1, "recall": recall, "precision": precision,
-                "mse": mse, "confusion_matrix": conf_matrix}
+        return {
+            "accuracy": accuracy, "f1": f1, "recall": recall, 
+            "precision": precision, "mse": mse, "rmse": rmse, 
+            "r_squared": r_squared, "confusion_matrix": conf_matrix
+        }

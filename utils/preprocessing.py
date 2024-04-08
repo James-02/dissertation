@@ -35,8 +35,6 @@ class DataLoader:
         self.test_file_path = os.path.join(self.data_path, test_file)
         self.save_file_path = os.path.join(self.data_path, save_file)
 
-        np.random.seed(seed)
-
     def load_ecg_data(self, rows: int = None, test_ratio: float = 0.2, encode_labels: bool = True, 
                       normalize: bool = True, repeat_targets: bool = False, shuffle: bool = True) \
                         -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:

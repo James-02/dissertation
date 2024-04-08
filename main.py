@@ -4,14 +4,22 @@ from utils.visualisation import Visualizer
 from reservoir.reservoir import OscillatorReservoir
 from reservoirpy.nodes import Reservoir, Ridge
 
+import reservoirpy as rpy
+import numpy as np
+
 # Define global constants
 NODES = 100
 SEED = 1337
-VERBOSITY = 0
+VERBOSITY = 1
 LOG_LEVEL = 1
 
 OSCILLATOR_RESERVOIR = "oscillator_reservoir"
 NEURON_RESERVOIR = "neuron_reservoir"
+
+# set global config
+rpy.set_seed(SEED)
+rpy.verbosity(VERBOSITY)
+np.random.seed(SEED)
 
 def main(use_oscillators: bool = True, plot_states: bool = True, plot_distribution: bool = False):
     reservoir_name = OSCILLATOR_RESERVOIR if use_oscillators else NEURON_RESERVOIR
@@ -22,7 +30,7 @@ def main(use_oscillators: bool = True, plot_states: bool = True, plot_distributi
         seed=SEED)
 
     X_train, Y_train, X_test, Y_test = data_loader.load_ecg_data(
-        rows=4000,
+        rows=5000,
         test_ratio=0.2,
         normalize=True,
         encode_labels=True,
