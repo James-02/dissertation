@@ -35,6 +35,12 @@ class DataLoader:
         self.test_file_path = os.path.join(self.data_path, test_file)
         self.save_file_path = os.path.join(self.data_path, save_file)
 
+    def log_params(self, params):
+        self.logger.info("----- Dataset Parameters -----")
+        for k, v in params.items():
+            self.logger.debug(f"{k}: {v}")
+        self.logger.info("--------------------------------")
+
     def load_ecg_data(self, rows: int = None, test_ratio: float = 0.2, encode_labels: bool = True, 
                       normalize: bool = True, repeat_targets: bool = False, shuffle: bool = True) \
                         -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -94,6 +100,13 @@ class DataLoader:
             self.logger.debug(f"Repeating train and test targets to size: {X_train[0].shape[0]}")
             Y_train = [np.repeat(Y_instance, X_instance.shape[0], axis=0) for X_instance, Y_instance in zip(X_train, Y_train)]
             Y_test = [np.repeat(Y_instance, X_instance.shape[0], axis=0) for X_instance, Y_instance in zip(X_test, Y_test)]
+
+        self.log_params({"shuffle": shuffle,
+                        "encode_labels": encode_labels,
+                        "normalize": normalize,
+                        "repeat_targets": repeat_targets,
+                        "rows": num_rows,
+                        "test_ratio": test_ratio})
 
         return X_train, Y_train, X_test, Y_test
 

@@ -26,8 +26,7 @@ def main(use_oscillators: bool = True, plot_states: bool = True, plot_distributi
     log_file = f"logs/{reservoir_name}_{NODES}_nodes.log"
     data_loader = DataLoader(
         log_level=LOG_LEVEL,
-        log_file=log_file,
-        seed=SEED)
+        log_file=log_file)
 
     X_train, Y_train, X_test, Y_test = data_loader.load_ecg_data(
         rows=5000,
@@ -44,9 +43,8 @@ def main(use_oscillators: bool = True, plot_states: bool = True, plot_distributi
         reservoir = OscillatorReservoir(
             units=NODES,
             timesteps=X_train[0].shape[0],
-            sr=1.0,
-            delay=10,
-            initial_values=[0, 100, 0, 0],
+            delay=7,
+            initial_values=[300, 300, 0, 0],
             seed=SEED,
             name=reservoir_name)
     else:
@@ -66,9 +64,10 @@ def main(use_oscillators: bool = True, plot_states: bool = True, plot_distributi
         train_set=(X_train, Y_train), 
         test_set=(X_test, Y_test),
         log_level=LOG_LEVEL,
-        log_file=log_file,
-        seed=SEED,
-        verbosity=VERBOSITY)
+        log_file=log_file)
+
+    # log the classification parameters
+    classifier.log_params()
 
     # Initialize visualizer object
     visualizer = Visualizer(results_path="results/", style="whitegrid", dpi=800)
@@ -85,7 +84,7 @@ def main(use_oscillators: bool = True, plot_states: bool = True, plot_distributi
     if plot_states:
         states = reservoir.run(X_train[0])
         node_labels = [f"Node: {i}" for i in range(NODES)]
-        visualizer.plot_states(states, node_labels, legend=True)
+        visualizer.plot_states(states, node_labels, legend=False)
         return
 
     # Perform classification
