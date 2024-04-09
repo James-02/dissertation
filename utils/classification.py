@@ -1,4 +1,3 @@
-from multiprocessing import Pool
 from typing import Optional
 
 import os
@@ -22,28 +21,12 @@ class Classifier:
         self.X_test, self.Y_test = test_set
         self.results_path = "results/training"
 
-    def _train_reservoir(self, x: np.ndarray):
-        return self.reservoir.run(x)
-
-    def _predict_reservoir(self, x: np.ndarray):
-        states = self.reservoir.run(x)
-        return self.readout.run(states[-1, np.newaxis])
-
-    def train(self, X_train: np.ndarray, processes: int):
-        if processes is None or processes > 1:
-            with Pool(processes=processes) as pool:
-                trained_states = pool.map(self._train_reservoir, [x for x in X_train])
-        else:
-            trained_states = [self._train_reservoir(x) for x in X_train]
+    def train(self, X_train: np.ndarray):
+        trained_states = [self.reservoir.run(x) for x in X_train]
         return [state[-1, np.newaxis] for state in trained_states]
 
-    def predict(self, X_test: np.ndarray, processes: int):
-        if processes is None or processes > 1:
-            with Pool(processes=processes) as pool:
-                predicted_states = pool.map(self._predict_reservoir, [x for x in X_test])
-            return predicted_states
-        else:
-            return [self._predict_reservoir(x) for x in X_test]
+    def predict(self, X_test: np.ndarray):
+        return [self.readout.run(self.reservoir.run(x) [-1, np.newaxis]) for x in X_test]
 
     def log_metrics(self, metrics: dict):
         self.logger.info("----- Classification Report -----")
@@ -83,7 +66,7 @@ class Classifier:
             self.logger.error(f"Error loading states from file: {e}")
             return []
 
-    def classify(self, processes: int = 0, save_states: bool = False, load_states: bool = False):
+    def classify(self, save_states: bool = False, load_states: bool = False):
         training_instances = len(self.X_train)
         testing_instances = len(self.X_test)
 
@@ -101,7 +84,7 @@ class Classifier:
         if len(trained_states) == 0:
             self.logger.info(f"Training Reservoir of {self.reservoir.units} nodes with {training_instances} instances")
             start = time.time()
-            trained_states = self.train(self.X_train, processes)
+            trained_states = self.train(self.X_train)
             end = time.time()
             self.logger.debug(f"Training Time Elapsed: {str(round(end - start, 4))}s")
 
@@ -115,7 +98,7 @@ class Classifier:
         # Predicting
         self.logger.info(f"Predicting with {testing_instances} instances.")
         start = time.time()
-        Y_pred = self.predict(self.X_test, processes)
+        Y_pred = self.predict(self.X_test)
         end = time.time()
         self.logger.debug(f"Prediction Time Elapsed: {str(round(end - start, 4))}s")
 

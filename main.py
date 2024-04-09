@@ -88,8 +88,7 @@ def main(use_oscillators: bool = True, plot_states: bool = True, plot_distributi
         return
 
     # Perform classification
-    metrics = classifier.classify(
-        processes=0, 
+    metrics = classifier.classify( 
         save_states=True, 
         load_states=True)
 
