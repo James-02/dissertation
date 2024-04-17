@@ -9,9 +9,11 @@ from reservoirpy.mat_gen import bernoulli, normal
 from reservoirpy.node import Node
 from reservoirpy.type import Weights
 from reservoirpy.utils.random import noise, rand_generator
-from reservoirpy.nodes.reservoirs.base import initialize, initialize_feedback
+from reservoirpy.nodes.reservoirs.base import initialize_feedback
 from reservoirpy.utils.validation import is_array
 from reservoirpy.activationsfunc import identity
+from reservoirpy.mat_gen import zeros
+
 
 from .node import Oscillator
 
@@ -101,6 +103,7 @@ class OscillatorReservoir(Node):
                 sr=sr,
                 input_scaling=input_scaling,
                 bias_scaling=bias_scaling,
+                rc_scaling=rc_scaling,
                 input_connectivity=input_connectivity,
                 rc_connectivity=rc_connectivity,
                 W_init=W,
@@ -114,9 +117,139 @@ class OscillatorReservoir(Node):
             input_dim=input_dim,
             **kwargs,
         )
-
         self.nodes = _initialize_nodes(self)
-    
+
+def initialize(
+    reservoir,
+    x=None,
+    y=None,
+    sr=None,
+    input_scaling=None,
+    bias_scaling=None,
+    rc_scaling=None,
+    input_connectivity=None,
+    rc_connectivity=None,
+    W_init=None,
+    Win_init=None,
+    bias_init=None,
+    input_bias=None,
+    seed=None,
+):
+    if x is not None:
+        reservoir.set_input_dim(x.shape[1])
+
+        dtype = reservoir.dtype
+        dtype_msg = (
+            "Data type {} not understood in {}. {} should be an array or a "
+            "callable returning an array."
+        )
+
+        if is_array(W_init):
+            W = W_init
+            if W.shape[0] != W.shape[1]:
+                raise ValueError(
+                    "Dimension mismatch inside W: "
+                    f"W is {W.shape} but should be "
+                    f"a square matrix."
+                )
+
+            if W.shape[0] != reservoir.output_dim:
+                reservoir._output_dim = W.shape[0]
+                reservoir.hypers["units"] = W.shape[0]
+
+        elif callable(W_init):
+            W = W_init(
+                reservoir.output_dim,
+                reservoir.output_dim,
+                sr=sr,
+                input_scaling=rc_scaling,
+                connectivity=rc_connectivity,
+                dtype=dtype,
+                seed=seed,
+            )
+        else:
+            raise ValueError(dtype_msg.format(str(type(W_init)), reservoir.name, "W"))
+
+        reservoir.set_param("units", W.shape[0])
+        reservoir.set_param("W", W.astype(dtype))
+
+        out_dim = reservoir.output_dim
+
+        Win_has_bias = False
+        if is_array(Win_init):
+            Win = Win_init
+
+            msg = (
+                f"Dimension mismatch in {reservoir.name}: Win input dimension is "
+                f"{Win.shape[1]} but input dimension is {x.shape[1]}."
+            )
+
+            # is bias vector inside Win ?
+            if Win.shape[1] == x.shape[1] + 1:
+                if input_bias:
+                    Win_has_bias = True
+                else:
+                    bias_msg = (
+                        " It seems Win has a bias column, but 'input_bias' is False."
+                    )
+                    raise ValueError(msg + bias_msg)
+            elif Win.shape[1] != x.shape[1]:
+                raise ValueError(msg)
+
+            if Win.shape[0] != out_dim:
+                raise ValueError(
+                    f"Dimension mismatch in {reservoir.name}: Win internal dimension "
+                    f"is {Win.shape[0]} but reservoir dimension is {out_dim}"
+                )
+
+        elif callable(Win_init):
+            Win = Win_init(
+                reservoir.output_dim,
+                x.shape[1],
+                input_scaling=input_scaling,
+                connectivity=input_connectivity,
+                dtype=dtype,
+                seed=seed,
+            )
+        else:
+            raise ValueError(
+                dtype_msg.format(str(type(Win_init)), reservoir.name, "Win")
+            )
+
+        if input_bias:
+            if not Win_has_bias:
+                if callable(bias_init):
+                    bias = bias_init(
+                        reservoir.output_dim,
+                        1,
+                        input_scaling=bias_scaling,
+                        connectivity=input_connectivity,
+                        dtype=dtype,
+                        seed=seed,
+                    )
+                elif is_array(bias_init):
+                    bias = bias_init
+                    if bias.shape[0] != reservoir.output_dim or (
+                        bias.ndim > 1 and bias.shape[1] != 1
+                    ):
+                        raise ValueError(
+                            f"Dimension mismatch in {reservoir.name}: bias shape is "
+                            f"{bias.shape} but should be {(reservoir.output_dim, 1)}"
+                        )
+                else:
+                    raise ValueError(
+                        dtype_msg.format(str(type(bias_init)), reservoir.name, "bias")
+                    )
+            else:
+                bias = Win[:, :1]
+                Win = Win[:, 1:]
+        else:
+            bias = zeros(reservoir.output_dim, 1, dtype=dtype)
+
+        reservoir.set_param("Win", Win.astype(dtype))
+        reservoir.set_param("bias", bias.astype(dtype))
+        reservoir.set_param("internal_state", reservoir.zero_state())
+
 def _initialize_nodes(reservoir: Node):
     return [Oscillator(reservoir.timesteps, reservoir.delay, reservoir.initial_values) for _ in range(reservoir.units)]
 
@@ -126,15 +259,12 @@ def _compute_input(reservoir, x):
 
     # Apply input weights and noise
     noise = reservoir.noise_generator(dist=reservoir.noise_type, shape=u.shape, gain=reservoir.noise_in)
-    weighted_input = reservoir.Win @ (u + noise) + reservoir.bias
-
-    # Apply coupling
-    coupled_input = weighted_input * reservoir.coupling
+    weighted_input = (reservoir.Win @ (u + noise) + reservoir.bias) * reservoir.coupling
 
     noise = reservoir.noise_generator(dist=reservoir.noise_type, shape=r.shape, gain=reservoir.noise_rc)
-    recurrent_state = (reservoir.W @ (r + noise)) * reservoir.rc_scaling
+    recurrent_state = (reservoir.W @ (r + noise))
 
-    pre_state = coupled_input + recurrent_state
+    pre_state = weighted_input + recurrent_state
 
     if reservoir.has_feedback:
         y = reservoir.feedback().reshape(-1, 1)

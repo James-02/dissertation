@@ -1,7 +1,7 @@
 import numpy as np
 import math
 
-from .dde import solve_dde, dde_system
+from .dde import solve_dde, dde_system, interpolate_history
 
 # Default hyperparameters for the oscillator
 DEFAULT_HYPERS = {
@@ -21,7 +21,7 @@ DEFAULT_HYPERS = {
     'd0': 0.88, 
     'D': 2.5, 
     'mu': 0.6,
-    'time': np.linspace(0, 1, 2)
+    'time': np.linspace(0, 1)
 }
 
 class Oscillator():
@@ -52,7 +52,6 @@ class Oscillator():
 
         # Solve the delayed differential equations and extract the final row as the state
         state = solve_dde(dde_system, self._history, self.hypers['time'], args=(self.hypers,))[:, -1]
-
         # update the history of states
         self._update_history(state)
 
@@ -67,16 +66,22 @@ class Oscillator():
 
     def _update_history(self, state: np.ndarray):
         if len(self._states) == self._max_states:
-            # If the size limit is reached, remove the oldest element before adding the new one
+            # If the size limit is reached, roll buffer to remove oldest state and append newest
             self._states = np.vstack((self._states[1:], state))
         else:
             # Otherwise, simply append the new state
             self._states = np.vstack((self._states, state))
 
     def _history(self, t: float, idx: int = None):
+        # if delay is 0, return current state
         if abs(t) == 0:
             return self._states[-1]
 
-        if idx is None:
-            return self._states[0]
-        return self._states[0, idx]
+        # if delay is greater than existing history, return oldest state (initial conditions)
+        if abs(t) > self._states.shape[0]:
+            if idx is None:
+                return self._states[0]
+            return self._states[0, idx]
+        
+        # interpolate state at historical timepoint from history of states
+        return interpolate_history(t, self._states, idx)

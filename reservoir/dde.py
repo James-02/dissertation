@@ -14,7 +14,7 @@ def solve_dde(func: Callable, history: Callable, t: np.ndarray, args: Tuple = ()
     Returns:
         np.ndarray: Solution of the delay differential equations at the specified time points.
     """
-    return odeint(lambda Y, t, args: func(Y, t, history, args), history(t[0]), t, args=args, rtol=1e-1, atol=1e-1).T
+    return odeint(lambda Y, t, args: func(Y, t, history, args), history(t[0]), t, args=args, rtol=1e-3, atol=1e-4).T
 
 def dde_system(Y: np.ndarray, t: float, history: Callable, params: dict) -> np.ndarray:
     """
