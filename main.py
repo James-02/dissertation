@@ -4,15 +4,19 @@ import reservoirpy as rpy
 import numpy as np
 
 from utils.logger import Logger
-from utils.preprocessing import load_ecg_data, load_npz
+from utils.preprocessing import load_ecg_data, load_npz, load_forecast_data, load_mackey_glass
 from utils.classification import classify
 from utils.visualisation import plot_states, plot_dataset_info, plot_class_mean, plot_data_distribution, \
     plot_class_std, plot_average_instance, plot_confusion_matrix, plot_metrics_across_folds, plot_metrics_table, plot_class_metrics
 from reservoir.reservoir import OscillatorReservoir, Oscillator
 
+from utils.forecasting import forecast
+
+import time
+
 # Define global constants
 SEED = 1337
-VERBOSITY = 0
+VERBOSITY = 1
 LOG_LEVEL = 1
 
 OSCILLATOR_RESERVOIR = "oscillator_reservoir"
@@ -25,14 +29,12 @@ np.random.seed(SEED)
 
 def plot_dde_states():
     timesteps = np.linspace(0, 1000, 1000)
-
     # Calculate the sine values for each time step
     sine_wave = np.sin(timesteps)
     oscillator = Oscillator(timesteps=1000, delay=10, initial_values=[0, 100, 0, 0])
     states = []
     for i in range(1000):
         states.append(oscillator.forward(sine_wave[i] * 1e-5))
-
     plot_states(np.array(states), labels=["A", "I", "Hi", "He"], ylabel="Concentration", title="", legend=True, show=True)
     
 def plot_reservoir_states(reservoir, X_train, iterations=1):
@@ -51,7 +53,7 @@ def analyse_dataset(X_train, Y_train, X_test, Y_test):
     plot_class_mean(X, Y, filename="binary-means.png", show=True)
 
 
-def main(use_oscillators: bool = True, analyse_data: bool = False, plot_states: bool = False):
+def classification(use_oscillators: bool = True, analyse_data: bool = False, plot_states: bool = False):
     X_train, Y_train, X_test, Y_test = load_ecg_data(
         rows=instances,
         test_ratio=0.2,
@@ -97,14 +99,40 @@ def main(use_oscillators: bool = True, analyse_data: bool = False, plot_states: 
             fold_metrics = load_npz(filename, allow_pickle=True)['metrics'].item()
             class_metrics = fold_metrics['class_metrics']
             # plot class metrics across each fold
+    
+def forecasting():
+    timesteps = 4000
+    X_train, Y_train, X_test, Y_test = load_forecast_data(timesteps=timesteps, forecast=1, test_ratio=0.1)
+    # X_train, Y_train, X_test, Y_test = load_mackey_glass()
+
+    reservoir = OscillatorReservoir(
+        units=nodes,
+        timesteps=timesteps,
+        delay=1,
+        delay=1,
+        sr=1.0,
+        coupling=1e-2,
+        rc_connectivity=1.0,
+        rc_scaling=1e-5,
+        initial_values=[0, 0, 0, 0],
+        seed=SEED)
+
+    # reservoir = Reservoir(units=units, sr=1.0)
+
+    # Initialize readout node
+    readout = Ridge(ridge=ridge)
+
+    forecast(reservoir, readout, X_train, Y_train, X_test, Y_test)
 
 if __name__ == "__main__":
     instances = 500
-    nodes = 40
+    nodes = 50
     folds = None
-    ridge = 1e-5
+    ridge = 1e-7
 
     log_file = f"logs/{nodes}_nodes.log"
     logger = Logger(level=LOG_LEVEL, log_file=log_file)
 
-    main()
+    classification()
+    # forecasting()
+    # plot_dde_states()

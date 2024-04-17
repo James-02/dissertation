@@ -77,7 +77,6 @@ def plot_data_distribution(Y: list, filename: str = "data-distribution.png", sho
         plt.show()
 
 def plot_dataset_info(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray, Y_test: np.ndarray, show=True, filename="dataset-table.png") -> None:
-    # Get label counts
     train_label_counts = count_labels(Y_train)
     test_label_counts = count_labels(Y_test)
 

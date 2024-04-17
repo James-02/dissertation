@@ -7,6 +7,8 @@ import pandas as pd
 from utils.logger import Logger
 from utils.analysis import count_labels, log_params
 
+from reservoirpy.datasets import to_forecasting, mackey_glass
+
 DEFAULT_LOG_LEVEL = 1
 
 logger = Logger()
@@ -20,6 +22,40 @@ def load_npz(filename: str, allow_pickle: bool = True) -> Tuple[np.ndarray, np.n
     except Exception as e:
         logger.error(f"Error loading data from: {filename}\n{e}")
         return None
+    
+def load_mackey_glass(timesteps=2510, test_ratio=0.2, tau=17):
+    X = mackey_glass(timesteps, tau=tau)
+
+    train_size = int(len(X) * (1 - test_ratio))
+
+    # Rescale between -1 and 1
+    X = 2 * (X - X.min()) / (X.max() - X.min()) - 1
+
+    # Prepare forecasting data
+    X, Y = to_forecasting(X, forecast=10)
+    X_train, Y_train = X[:train_size], Y[:train_size]
+    X_test, Y_test = X[train_size:], Y[train_size:]
+    return X_train, Y_train, X_test, Y_test
+
+def load_forecast_data(timesteps=1000, forecast=10, test_ratio=0.2):
+    # Read the CSV file and extract the 'MLII' column
+    df = pd.read_csv("data/ecg/mit-bih-100.csv")
+    data = df[['MLII']].values
+
+    # Use the to_forecasting function to create input-output pairs for forecasting
+    X, Y = to_forecasting(data[:timesteps], forecast=forecast)
+
+    # rescale between 1 and -1
+    X = 2 * (X - X.min()) / (X.max() - X.min()) - 1
+
+    train_size = int(len(X) * (1 - test_ratio))
+
+    # Split the data into training and testing sets
+    X_train, Y_train = X[:train_size], Y[:train_size]
+    X_test, Y_test = X[train_size:], Y[train_size:]
+
+    return X_train, Y_train, X_test, Y_test
+
 
 def load_ecg_data(rows: int = None, test_ratio: float = 0.2, encode_labels: bool = True, normalize: bool = True, 
                     repeat_targets: bool = False, shuffle: bool = True, binary: bool = False,
