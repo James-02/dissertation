@@ -37,7 +37,7 @@ def load_mackey_glass(timesteps=2510, test_ratio=0.2, tau=17):
     X_test, Y_test = X[train_size:], Y[train_size:]
     return X_train, Y_train, X_test, Y_test
 
-def load_forecast_data(timesteps=1000, forecast=10, test_ratio=0.2):
+def load_ecg_forecast(timesteps=1000, forecast=10, test_ratio=0.2):
     # Read the CSV file and extract the 'MLII' column
     df = pd.read_csv("data/ecg/mit-bih-100.csv")
     data = df[['MLII']].values

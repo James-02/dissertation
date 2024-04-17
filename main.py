@@ -4,7 +4,7 @@ import reservoirpy as rpy
 import numpy as np
 
 from utils.logger import Logger
-from utils.preprocessing import load_ecg_data, load_npz, load_forecast_data, load_mackey_glass
+from utils.preprocessing import load_ecg_data, load_npz, load_ecg_forecast, load_mackey_glass
 from utils.classification import classify
 from utils.visualisation import plot_states, plot_dataset_info, plot_class_mean, plot_data_distribution, \
     plot_class_std, plot_average_instance, plot_confusion_matrix, plot_metrics_across_folds, plot_metrics_table, plot_class_metrics
@@ -101,18 +101,18 @@ def classification(use_oscillators: bool = True, analyse_data: bool = False, plo
             # plot class metrics across each fold
     
 def forecasting():
-    timesteps = 4000
-    X_train, Y_train, X_test, Y_test = load_forecast_data(timesteps=timesteps, forecast=1, test_ratio=0.1)
-    # X_train, Y_train, X_test, Y_test = load_mackey_glass()
+    timesteps = 3000
+    X_train, Y_train, X_test, Y_test = load_ecg_forecast(timesteps=timesteps, forecast=1, test_ratio=0.3)
+    # X_train, Y_train, X_test, Y_test = load_mackey_glass(timesteps=timesteps)
 
     reservoir = OscillatorReservoir(
         units=nodes,
         timesteps=timesteps,
         delay=1,
-        delay=1,
         sr=1.0,
         coupling=1e-2,
         rc_connectivity=1.0,
+        input_connectivity=1.0,
         rc_scaling=1e-5,
         initial_values=[0, 0, 0, 0],
         seed=SEED)
