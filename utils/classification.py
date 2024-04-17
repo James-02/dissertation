@@ -1,126 +1,123 @@
-from typing import Optional
-
-import os
+from functools import partial
 import time
-import numpy as np
+import multiprocessing
 
+import numpy as np
 from reservoirpy import Node
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, r2_score
+from sklearn.model_selection import KFold
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, r2_score, classification_report
 
 from utils.logger import Logger
+from utils.preprocessing import save_npz
+from utils.analysis import log_params, log_metrics, compute_mean_metrics
 
-DEFAULT_LOG_LEVEL = 1
-DEFAULT_VERBOSITY = 1
+logger = Logger()
 
-class Classifier:
-    def __init__(self, reservoir: Node, readout: Node, train_set: tuple, test_set: tuple, log_level: int = DEFAULT_LOG_LEVEL, log_file: str = None):
-        self.logger = Logger(name=__name__, level=log_level, log_file=log_file)
-        self.reservoir = reservoir
-        self.readout = readout
-        self.X_train, self.Y_train = train_set
-        self.X_test, self.Y_test = test_set
-        self.results_path = "results/training"
+def train(reservoir: Node, X_train: np.ndarray):
+    logger.info(f"Training Reservoir of {reservoir.units} nodes with {len(X_train)} instances")
+    return [reservoir.run(x, reset=True)[-1, np.newaxis] for x in X_train]
 
-    def train(self, X_train: np.ndarray):
-        trained_states = [self.reservoir.run(x) for x in X_train]
-        return [state[-1, np.newaxis] for state in trained_states]
+def fit_readout(readout: Node, trained_states, Y_train):
+    logger.info(f"Fitting readout layer with {len(trained_states)} states")
+    readout.fit(trained_states, Y_train)
 
-    def predict(self, X_test: np.ndarray):
-        return [self.readout.run(self.reservoir.run(x) [-1, np.newaxis]) for x in X_test]
+def predict(reservoir: Node, readout: Node, X_test: np.ndarray):
+    logger.info(f"Predicting with {len(X_test)} instances.")
+    return [readout.run(reservoir.run(x, reset=True)[-1, np.newaxis]) for x in X_test]
 
-    def log_metrics(self, metrics: dict):
-        self.logger.info("----- Classification Report -----")
-        self.logger.info(f"Accuracy: {metrics['accuracy']:.3f}%")
-        self.logger.info(f"MSE: {metrics['mse']:.3f}")
-        self.logger.info(f"RMSE: {metrics['rmse']:.3f}")
-        self.logger.info(f"R^2: {metrics['r_squared']:.3f}")
-        self.logger.info(f"Recall: {metrics['recall']:.3f}")
-        self.logger.info(f"Precision: {metrics['precision']:.3f}")
-        self.logger.info(f"F1: {metrics['f1']:.3f}")
-        self.logger.info("---------------------------------")
+def run_fold(reservoir, readout, X_train_fold, Y_train_fold, X_val, Y_val, fold_index, save_file):
+    logger.debug(f"Running cross validation fold: {str(fold_index)}")
 
-    def log_params(self):
-        params = self.reservoir.hypers
-        self.logger.info("----- Reservoir Parameters -----")
-        for k, v in params.items():
-            self.logger.debug(f"{k}: {v}")
-        self.logger.info("--------------------------------")
+    # Copy reservoir and readout for each fold
+    reservoir = reservoir.copy()
+    readout = readout.copy()
 
-        params = self.readout.hypers
-        self.logger.info("----- Readout Parameters -----")
-        for k, v in params.items():
-            self.logger.debug(f"{k}: {v}")
-        self.logger.info("--------------------------------")
+    start_time = time.time()
+    trained_states = train(reservoir, X_train_fold)
+    fit_readout(readout, trained_states, Y_train_fold)
+    Y_pred = predict(reservoir, readout, X_val)
+    end_time = time.time()
 
-    def save_states_to_file(self, file_path: str, states: np.ndarray):
-        try:
-            np.save(file=os.path.join(self.results_path, file_path), arr=states)
-            self.logger.info(f"Saved {len(states)} states to {file_path}")
-        except Exception as e:
-            self.logger.error(f"Error saving states to file: {e}")
+    runtime = round(end_time - start_time, 4)
+    fold_metrics = evaluate_performance(Y_val, Y_pred, runtime)
 
-    def load_states_from_file(self, file_path: str) -> Optional[np.ndarray]:
-        try:
-            return np.load(file=os.path.join(self.results_path, file_path))
-        except Exception as e:
-            self.logger.error(f"Error loading states from file: {e}")
-            return []
+    if save_file:
+        data = {"X_train": X_train_fold, "X_test": X_val, "Y_train": Y_train_fold, "Y_test": Y_val,
+                "reservoir-hypers": reservoir.hypers, "readout-hypers": readout.hypers,
+                "X_trained": trained_states, "Y_predicted": Y_pred, "metrics": fold_metrics}
+        save_npz(filename=f"{save_file}-fold-{fold_index}.npz", **data)
 
-    def classify(self, save_states: bool = False, load_states: bool = False):
-        training_instances = len(self.X_train)
-        testing_instances = len(self.X_test)
+    return fold_metrics
 
-        # try to load states if they exist
-        trained_states = []
-        if load_states:
-            file = f"states-{self.reservoir.name}-{self.reservoir.units}-{training_instances}.npy"
-            self.logger.debug(f"Attempting to load states from: {file}")
-            trained_states = self.load_states_from_file(file)
+def cross_validate(reservoir: Node, readout: Node, X: np.ndarray, Y: np.ndarray,
+                   folds: int = 5, shuffle: bool = True, save_file: str = None):
+    kf = KFold(n_splits=folds, shuffle=shuffle)
+    fold_results = []
+    fold_metrics = []
 
-            if len(trained_states) != 0:
-                self.logger.info(f"Loaded {len(trained_states)} states from: {file}")
+    # Define a partial function with fixed reservoir and readout arguments
+    run_fold_partial = partial(run_fold, reservoir, readout)
 
-        # train states if could not be loaded
-        if len(trained_states) == 0:
-            self.logger.info(f"Training Reservoir of {self.reservoir.units} nodes with {training_instances} instances")
-            start = time.time()
-            trained_states = self.train(self.X_train)
-            end = time.time()
-            self.logger.debug(f"Training Time Elapsed: {str(round(end - start, 4))}s")
+    with multiprocessing.Pool(processes=folds) as pool:
+        # Iterate over the folds and run each fold in parallel
+        for i, (train_index, val_index) in enumerate(kf.split(X)):
+            X_train_fold, X_val = X[train_index], X[val_index]
+            Y_train_fold, Y_val = Y[train_index], Y[val_index]
+            fold_result = pool.apply_async(run_fold_partial, args=(X_train_fold, Y_train_fold, X_val, Y_val, i, save_file))
+            fold_results.append(fold_result)
 
-            if save_states:
-                self.save_states_to_file(f"states-{self.reservoir.name}-{self.reservoir.units}-{training_instances}", trained_states)
+        # Get the results from all the folds
+        fold_metrics = [result.get() for result in fold_results]
 
-        # Fitting
-        self.logger.info(f"Fitting readout layer with {len(trained_states)} states")
-        self.readout.fit(trained_states, self.Y_train)
+    return compute_mean_metrics(fold_metrics)
 
-        # Predicting
-        self.logger.info(f"Predicting with {testing_instances} instances.")
-        start = time.time()
-        Y_pred = self.predict(self.X_test)
-        end = time.time()
-        self.logger.debug(f"Prediction Time Elapsed: {str(round(end - start, 4))}s")
+def classify(reservoir: Node, readout: Node, X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray, 
+             Y_test: np.ndarray, folds: int = None, save_file: str = None):
+    
+    # log model hyper-parameters
+    log_params({**reservoir.hypers, **readout.hypers}, title="Reservoir Hyper-parameters")
 
-        # Calculate performance metrics
-        self.logger.info("Calculating model performance metrics")
-        Y_test_class = np.array([np.argmax(y_t) for y_t in self.Y_test])
-        Y_pred_class = np.array([np.argmax(y_p) for y_p in Y_pred])
-        
-        return self.evaluation(Y_test_class, Y_pred_class)
-        
-    def evaluation(self, Y_true: np.ndarray, Y_pred: np.ndarray):
-        accuracy = accuracy_score(Y_true, Y_pred) * 100
-        f1 = f1_score(Y_true, Y_pred, average='weighted')
-        recall = recall_score(Y_true, Y_pred, average='weighted')
-        precision = precision_score(Y_true, Y_pred, average='weighted')
-        mse = np.mean((Y_true - Y_pred) ** 2)
-        rmse = np.sqrt(mse)
-        r_squared = r2_score(Y_true, Y_pred)
-        conf_matrix = confusion_matrix(Y_true, Y_pred)
+    # perform cross validation classification
+    if folds:
+        X = np.concatenate((X_train, X_test), axis=0)
+        Y = np.concatenate((Y_train, Y_test), axis=0)
+        metrics = cross_validate(reservoir, readout, X, Y, folds=folds, save_file=save_file)
 
-        return {
-            "accuracy": accuracy, "f1": f1, "recall": recall, 
-            "precision": precision, "mse": mse, "rmse": rmse, 
-            "r_squared": r_squared, "confusion_matrix": conf_matrix
-        }
+    # perform train / test classification
+    else:
+        start_time = time.time()
+        trained_states = train(reservoir, X_train)
+        fit_readout(readout, trained_states, Y_train)
+        Y_pred = predict(reservoir, readout, X_test)
+        end_time = time.time()
+
+        runtime = round(end_time - start_time, 4)
+        metrics = evaluate_performance(Y_test, Y_pred, runtime)
+
+        # save performance metrics to file
+        if save_file:
+            data = {"X_train": X_train, "X_test": X_test, "Y_train": Y_train, "Y_test": Y_test,
+                    "reservoir-hypers": reservoir.hypers, "readout-hypers": readout.hypers,
+                    "X_trained": trained_states, "Y_predicted": Y_pred, "metrics": metrics}
+            save_npz(filename=save_file, **data)
+    
+    log_metrics(metrics)
+    return metrics
+
+def evaluate_performance(Y_true: np.ndarray, Y_pred: np.ndarray, time: float):
+    logger.info("Calculating model performance metrics")
+    Y_true = np.array([np.argmax(y_t) for y_t in Y_true])
+    Y_pred = np.array([np.argmax(y_p) for y_p in Y_pred])
+
+    return {
+        "runtime": time,
+        "accuracy": accuracy_score(Y_true, Y_pred),
+        "f1": f1_score(Y_true, Y_pred, average='weighted'),
+        "recall": recall_score(Y_true, Y_pred, average='weighted'),
+        "precision": precision_score(Y_true, Y_pred, average='weighted'),
+        "mse": np.mean((Y_true - Y_pred) ** 2),
+        "rmse": np.sqrt(np.mean((Y_true - Y_pred) ** 2)),
+        "r2_score": r2_score(Y_true, Y_pred),
+        "confusion_matrix": confusion_matrix(Y_true, Y_pred),
+        "class_metrics": classification_report(Y_true, Y_pred, output_dict=True)
+    }
