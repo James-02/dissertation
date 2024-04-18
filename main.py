@@ -12,7 +12,7 @@ from reservoir.reservoir import OscillatorReservoir, Oscillator
 
 from utils.forecasting import forecast
 
-import time
+import matplotlib.pyplot as plt
 
 # Define global constants
 SEED = 1337
@@ -26,6 +26,32 @@ NEURON_RESERVOIR = "neuron_reservoir"
 rpy.set_seed(SEED)
 rpy.verbosity(VERBOSITY)
 np.random.seed(SEED)
+
+def plot_full_ecg():
+    timesteps = 2000
+    X_train, _, _, _ = load_ecg_forecast(timesteps=timesteps)
+    sampling_freq = 125
+    num_samples = len(X_train)
+    time_ms = np.arange(num_samples) / sampling_freq * 1000
+    
+    # Plot the ECG waveform
+    plt.figure(figsize=(14, 8))
+    plt.plot(time_ms, X_train, label='ECG waveform')
+
+    # calculate box width in ms
+    box_width = 187 * 1000 / sampling_freq
+    start_x = 4500
+
+    # Plot the box
+    plt.plot([start_x, start_x + box_width], [min(X_train), min(X_train)], linestyle=':', color='red', label="Sampled Segment")
+    plt.plot([start_x, start_x + box_width], [max(X_train), max(X_train)], linestyle=':', color='red')
+    plt.plot([start_x, start_x], [min(X_train), max(X_train)], linestyle=':', color='red')
+    plt.plot([start_x + box_width, start_x + box_width], [min(X_train), max(X_train)], linestyle=':', color='red')
+    
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Voltage (mV)')
+    plt.legend()
+    plt.show()
 
 def plot_dde_states():
     timesteps = np.linspace(0, 1000, 1000)
@@ -101,8 +127,8 @@ def classification(use_oscillators: bool = True, analyse_data: bool = False, plo
             # plot class metrics across each fold
     
 def forecasting():
-    timesteps = 3000
-    X_train, Y_train, X_test, Y_test = load_ecg_forecast(timesteps=timesteps, forecast=1, test_ratio=0.3)
+    timesteps = 2510
+    X_train, Y_train, X_test, Y_test = load_ecg_forecast(timesteps=timesteps, forecast=1, test_ratio=0.1)
     # X_train, Y_train, X_test, Y_test = load_mackey_glass(timesteps=timesteps)
 
     reservoir = OscillatorReservoir(
@@ -113,7 +139,8 @@ def forecasting():
         coupling=1e-2,
         rc_connectivity=1.0,
         input_connectivity=1.0,
-        rc_scaling=1e-5,
+        input_scaling=1.0,
+        rc_scaling=5e-6,
         initial_values=[0, 0, 0, 0],
         seed=SEED)
 
@@ -125,7 +152,7 @@ def forecasting():
     forecast(reservoir, readout, X_train, Y_train, X_test, Y_test)
 
 if __name__ == "__main__":
-    instances = 500
+    instances = 4016
     nodes = 50
     folds = None
     ridge = 1e-7
@@ -136,3 +163,4 @@ if __name__ == "__main__":
     classification()
     # forecasting()
     # plot_dde_states()
+    # plot_full_ecg()

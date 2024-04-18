@@ -46,7 +46,7 @@ def load_ecg_forecast(timesteps=1000, forecast=10, test_ratio=0.2):
     X, Y = to_forecasting(data[:timesteps], forecast=forecast)
 
     # rescale between 1 and -1
-    X = 2 * (X - X.min()) / (X.max() - X.min()) - 1
+    X, Y = _normalize(X), _normalize(Y)
 
     train_size = int(len(X) * (1 - test_ratio))
 
@@ -170,9 +170,8 @@ def _preprocess_dataset(train_df: pd.DataFrame, test_df: pd.DataFrame, binary: b
     if binary:
         logger.debug("Merging all arrhythmia variations into one target for binary classification")
         Y_combined[Y_combined != 0] = 1
-        print(Y_combined.size)
 
-    return _balance_classes(X_combined.values, Y_combined.values)
+    return X_combined.values, Y_combined.values
 
 def _load_ecg_dataset(binary: bool, train_file_path: str, test_file_path: str, save_file_path: str, save_file_path_binary: str) -> Tuple[np.ndarray, np.ndarray]:
     file_path = save_file_path_binary if binary else save_file_path

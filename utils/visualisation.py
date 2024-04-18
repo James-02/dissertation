@@ -16,9 +16,8 @@ RESULTS_DIR = "results/"
 binary_classes = ['Normal', 'Arrhythmia']
 binary_colors = sns.color_palette("husl", n_colors=len(binary_classes))[::-1]
 
-classes = ['Normal', 'Unknown', 'Ventricular ectopic', 'Supraventricular ectopic', 'Fusion']
+classes = ['Normal', 'Ventricular ectopic', 'Supraventricular ectopic', 'Fusion', 'Unknown']
 class_colors = sns.color_palette("husl", n_colors=len(classes))[::-1]
-
 
 def _save_figure(filename: str):
     plt.savefig(os.path.join(RESULTS_DIR, filename), bbox_inches="tight", dpi=DPI)
