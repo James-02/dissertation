@@ -9,3 +9,4 @@ PyQt5==5.15.10
 pillow==10.3.0
 pyarrow==15.0.0
 pytest==8.0.2
+optuna==3.6.1

@@ -1,32 +1,34 @@
 import os
 import time
 import argparse
+import multiprocessing
+
 import joblib
 import optuna
+import reservoirpy as rpy
 import matplotlib.pyplot as plt
+
 from reservoirpy.nodes import Ridge
 from optuna.visualization.matplotlib import plot_contour, plot_parallel_coordinate, plot_param_importances, plot_rank, plot_slice
+
 from reservoir.reservoir import OscillatorReservoir
 from utils.preprocessing import load_ecg_data
 from utils.classification import classify
+from utils.logger import Logger
 
+rpy.verbosity(0)
 
 def objective(trial, dataset, params):
     X_train, Y_train, X_test, Y_test = dataset
 
-    nodes = params.get('nodes', 100)
-    delay = params.get('delay', 7)
-    input_scaling = params.get('input_scaling', 1.0)
-    seed = params.get('seed', 1337)
-    ridge = params.get('ridge', 1e-5)
-
-    sr = trial.suggest_float("sr", 0, 1)
+    sr = trial.suggest_float("sr", 0, 2)
+    delay = trial.suggest_float("delay", 7, 10)
     input_connectivity = trial.suggest_float("input_connectivity", 0, 1)
     rc_connectivity = trial.suggest_float("rc_connectivity", 0, 1)
-    coupling = trial.suggest_float("rc_connectivity", 1e-6, 1e-2)
+    coupling = trial.suggest_float("coupling", 1e-6, 1e-2)
     rc_scaling = trial.suggest_float("rc_scaling", 1e-7, 1e-2)
 
-    reservoir = OscillatorReservoir(units=nodes,
+    reservoir = OscillatorReservoir(units=params['nodes'],
                                     timesteps=X_train[0].shape[0],
                                     delay=delay,
                                     sr=sr,
@@ -34,10 +36,10 @@ def objective(trial, dataset, params):
                                     rc_scaling=rc_scaling,
                                     input_connectivity=input_connectivity,
                                     rc_connectivity=rc_connectivity,
-                                    input_scaling=input_scaling,
-                                    seed=seed)
+                                    input_scaling=params['input_scaling'],
+                                    seed=params['seed'])
 
-    readout = Ridge(ridge=ridge)
+    readout = Ridge(ridge=params['ridge'])
 
     metrics = classify(reservoir, readout, X_train, Y_train, X_test, Y_test)
     return metrics['f1']
@@ -79,10 +81,9 @@ def research_multi(trials, processes):
     print(f"Time Elapsed: {end_time - start_time}s")
     return studies
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--trials', type=int, default=15)
+    parser.add_argument('--trials', type=int, default=5)
     parser.add_argument('--study_name', type=str, default="optimization-study")
     parser.add_argument('--nodes', type=int, default=100)
     parser.add_argument('--instances', type=int, default=1000)
@@ -90,40 +91,39 @@ if __name__ == "__main__":
     parser.add_argument('--use_oscillators', type=bool, default=True)
     parser.add_argument('--test_ratio', type=float, default=0.2)
     parser.add_argument('--processes', type=int, default=1)
+    parser.add_argument('--job_id', type=int, default=0)
     args = parser.parse_args()
 
+    logger = Logger(log_file=f"logs/optimization-{args.job_id}.log")
     dataset = load_ecg_data(
-        rows=args.instances, 
+        rows=args.instances,
         test_ratio=args.test_ratio,
-        normalize=True, 
-        encode_labels=True, 
+        normalize=True,
+        encode_labels=True,
         shuffle=True,
         repeat_targets=False,
         binary=args.binary)
 
-    # Define the grid of parameter values
-    sr_values = [0.7, 0.9, 1.1]
-    input_connectivity_values = [0.3, 0.5, 1.0]
-    rc_connectivity_values = [0.3, 0.5, 1.0]
-    coupling_values = [1e-2, 5e-3, 1e-4]
-    rc_scaling_values = [1e-6, 8e-6, 1e-7]
+    # Define the grid of parameter values as a dictionary
+    param_values = {
+        'sr': [0.7, 0.9, 1.1],
+        'delay': [7, 8, 10],
+        'input_connectivity': [0.3, 0.5, 1.0],
+        'rc_connectivity': [0.3, 0.5, 1.0],
+        'coupling': [1e-2, 5e-3, 1e-4],
+        'rc_scaling': [1e-6, 8e-6, 1e-7]
+    }
 
+    # Create a list of parameter sets as dictionaries
     params = {
         'nodes': args.nodes,
-        'delay': 7,
         'input_scaling': 1.0,
         'seed': 1337,
         'ridge': 1e-5
-    }
+        }
 
     # Create the study with the GridSampler
-    sampler = optuna.samplers.GridSampler({
-        'sr': sr_values,
-        'input_connectivity': input_connectivity_values,
-        'rc_connectivity': rc_connectivity_values,
-        'coupling': coupling_values,
-        'rc_scaling': rc_scaling_values
-    })
+    sampler = optuna.samplers.GridSampler(param_values)
 
     log_name = f"logs/optuna-{args.study_name}.db"
     storage = optuna.storages.RDBStorage(f'sqlite:///{log_name}')
@@ -135,6 +135,7 @@ if __name__ == "__main__":
         load_if_exists=True
     )
 
+    print("Processes Available: ", multiprocessing.cpu_count())
     if args.processes > 1:
         research_multi(args.trials, args.processes)
     else:
