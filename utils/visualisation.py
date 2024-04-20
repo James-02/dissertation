@@ -4,6 +4,7 @@ import os
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
 
 from utils.analysis import count_labels, measure_class_deviation
 
@@ -253,17 +254,19 @@ def plot_confusion_matrix(confusion_matrix, cmap=plt.cm.Blues, show=True, filena
     if show:
         plt.show()
 
-def plot_metrics_across_folds(metrics_list, metric_names=['accuracy', 'loss'], show=True, filename="metrics_folds.png"):
-    num_folds = len(metrics_list)
+def plot_metrics_across_folds(metrics, metric_names=["accuracy", "mse", "rmse", "f1"], show=True, filename="metrics_folds.png"):
+    num_folds = len(metrics)
     num_metrics = len(metric_names)
 
     plt.figure(figsize=(12, 6))
     for i in range(num_metrics):
-        metric_values = [metrics[metric_names[i]] for metrics in metrics_list]
+        metric_values = [metrics[metric_names[i]] for metrics in metrics]
+        print(metric_values)
         plt.plot(range(1, num_folds + 1), metric_values, marker='o', label=metric_names[i])
 
     plt.xlabel('Fold')
     plt.ylabel('Value')
+    plt.xticks(range(1, num_folds + 1))
     plt.legend()
     plt.tight_layout()
 
@@ -306,5 +309,34 @@ def plot_class_metrics(metrics, filename="class-metrics.png", show=True):
 
     _save_figure(filename=os.path.join("metrics/", filename))
 
+    if show:
+        plt.show()
+
+
+def plot_tsne_clustering(Y_pred, Y_true, show=True):
+    Y_pred_flat = np.array(Y_pred).reshape(len(Y_pred), -1)
+    
+    # Perform t-SNE embedding
+    tsne = TSNE(n_components=2)
+    tsne_embeddings = tsne.fit_transform(Y_pred_flat)
+
+    Y_true = np.argmax(Y_true, axis=-1)
+    ticks = np.unique(Y_true)
+
+    colors = "RdYlGn_r"
+    class_names = classes
+    if len(ticks) == 2:
+        class_names = binary_classes
+
+    plt.figure(figsize=(10, 8))
+    scatter = plt.scatter(x=tsne_embeddings[:, 0], y=tsne_embeddings[:, 1], c=Y_true, cmap=colors)
+    cbar = plt.colorbar(scatter, ticks=ticks)
+    cbar.set_ticklabels([class_names[t] for t in ticks])
+    cbar.set_label('Class')
+
+    plt.xlabel('t-SNE Dimension 1')
+    plt.ylabel('t-SNE Dimension 2')
+
+    _save_figure(filename=os.path.join("metrics/", "test.png"))
     if show:
         plt.show()
