@@ -22,7 +22,6 @@ def objective(trial, dataset, params):
     X_train, Y_train, X_test, Y_test = dataset
 
     sr = trial.suggest_float("sr", 0, 2)
-    delay = trial.suggest_float("delay", 7, 10)
     input_connectivity = trial.suggest_float("input_connectivity", 0, 1)
     rc_connectivity = trial.suggest_float("rc_connectivity", 0, 1)
     coupling = trial.suggest_float("coupling", 1e-6, 1e-2)
@@ -30,7 +29,7 @@ def objective(trial, dataset, params):
 
     reservoir = OscillatorReservoir(units=params['nodes'],
                                     timesteps=X_train[0].shape[0],
-                                    delay=delay,
+                                    delay=params['delay'],
                                     sr=sr,
                                     coupling=coupling,
                                     rc_scaling=rc_scaling,
@@ -107,7 +106,6 @@ if __name__ == "__main__":
     # Define the grid of parameter values as a dictionary
     param_values = {
         'sr': [0.7, 0.9, 1.1],
-        'delay': [7, 8, 10],
         'input_connectivity': [0.3, 0.5, 1.0],
         'rc_connectivity': [0.3, 0.5, 1.0],
         'coupling': [1e-2, 5e-3, 1e-4],
@@ -118,6 +116,7 @@ if __name__ == "__main__":
     params = {
         'nodes': args.nodes,
         'input_scaling': 1.0,
+        'delay': 10,
         'seed': 1337,
         'ridge': 1e-5
         }
@@ -142,8 +141,7 @@ if __name__ == "__main__":
         optimize_study(study, args.trials, dataset, params)
 
     trials_df = study.trials_dataframe()
-    best_trial = trials_df.loc[trials_df['value'].idxmin()]
-    print(best_trial)
+    best_trial = trials_df.loc[trials_df['value'].idxmax()]
 
     print("Best Parameters:")
     for param_name in best_trial.index:
@@ -153,4 +151,4 @@ if __name__ == "__main__":
             print(f" - {param_name}: {param_value}")
     print("F1 Score: ", best_trial["value"])
 
-    # plot_results(study)
+    plot_results(study)
