@@ -21,9 +21,9 @@ def fit_readout(readout: Node, trained_states, Y_train):
     logger.info(f"Fitting readout layer with {len(trained_states)} states")
     readout.fit(trained_states, Y_train)
 
-def predict(reservoir: Node, readout: Node, X_test: np.ndarray):
-    logger.info(f"Predicting with {len(X_test)} instances.")
-    return [readout.run(reservoir.run(x, reset=True)[-1, np.newaxis]) for x in X_test]
+def predict(readout: Node, states: np.ndarray):
+    logger.info(f"Predicting with {len(states)} instances.")
+    return [readout.run(state) for state in states]
 
 def run_fold(reservoir, readout, X_train_fold, Y_train_fold, X_val, Y_val, fold_index, save_file):
     logger.debug(f"Running cross validation fold: {str(fold_index)}")
@@ -33,25 +33,26 @@ def run_fold(reservoir, readout, X_train_fold, Y_train_fold, X_val, Y_val, fold_
     readout = readout.copy()
 
     start_time = time.time()
-    trained_states = train(reservoir, X_train_fold)
-    fit_readout(readout, trained_states, Y_train_fold)
-    Y_pred = predict(reservoir, readout, X_val)
+
+    train_states = train(reservoir, X_train_fold)
+    fit_readout(readout, train_states, Y_train_fold)
+
+    test_states = train(reservoir, X_val)
+    Y_pred = predict(readout, test_states)
+
     end_time = time.time()
 
     runtime = round(end_time - start_time, 4)
     fold_metrics = evaluate_performance(Y_val, Y_pred, runtime)
 
     if save_file:
-        data = {"X_train": X_train_fold, "X_test": X_val, "Y_train": Y_train_fold, "Y_test": Y_val,
-                "reservoir-hypers": reservoir.hypers, "readout-hypers": readout.hypers,
-                "X_trained": trained_states, "Y_predicted": Y_pred, "metrics": fold_metrics}
+        data = {"model-hypers": {**reservoir.hypers, **readout.hypers}, "test_states": test_states, "Y_pred": Y_pred, "metrics": fold_metrics}
         save_npz(filename=f"{save_file}-fold-{fold_index}.npz", **data)
 
     return fold_metrics
 
-def cross_validate(reservoir: Node, readout: Node, X: np.ndarray, Y: np.ndarray,
-                   folds: int = 5, shuffle: bool = True, save_file: str = None):
-    kf = KFold(n_splits=folds, shuffle=shuffle)
+def cross_validate(reservoir: Node, readout: Node, X: np.ndarray, Y: np.ndarray, folds: int = 5, save_file: str = None):
+    kf = KFold(n_splits=folds, shuffle=True)
     fold_results = []
     fold_metrics = []
 
@@ -86,9 +87,13 @@ def classify(reservoir: Node, readout: Node, X_train: np.ndarray, Y_train: np.nd
     # perform train / test classification
     else:
         start_time = time.time()
-        trained_states = train(reservoir, X_train)
-        fit_readout(readout, trained_states, Y_train)
-        Y_pred = predict(reservoir, readout, X_test)
+
+        train_states = train(reservoir, X_train)
+        fit_readout(readout, train_states, Y_train)
+
+        test_states = train(reservoir, X_test)
+        Y_pred = predict(readout, test_states)
+
         end_time = time.time()
 
         runtime = round(end_time - start_time, 4)
@@ -96,11 +101,9 @@ def classify(reservoir: Node, readout: Node, X_train: np.ndarray, Y_train: np.nd
 
         # save performance metrics to file
         if save_file:
-            data = {"X_train": X_train, "X_test": X_test, "Y_train": Y_train, "Y_test": Y_test,
-                    "reservoir-hypers": reservoir.hypers, "readout-hypers": readout.hypers,
-                    "X_trained": trained_states, "Y_predicted": Y_pred, "metrics": metrics}
+            data = {"model-hypers": {**reservoir.hypers, **readout.hypers}, "test_states": test_states, "Y_pred": Y_pred, "metrics": metrics}
             save_npz(filename=save_file, **data)
-    
+
     log_metrics(metrics)
     return metrics
 

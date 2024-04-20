@@ -19,17 +19,34 @@ def log_params(params, title="Hyper-parameters"):
         logger.debug(f"{key}: {value}")
     logger.debug("--------------------------------")
 
-def compute_mean_metrics(metrics_list):
-    sum_metrics = {}
-    count = len(metrics_list)
-    for metric in metrics_list:
-        for key, value in metric.items():
-            if isinstance(value, (int, float)):
-                if key not in sum_metrics:
-                    sum_metrics[key] = 0
-                sum_metrics[key] += value
+def aggregate_dicts(dicts_list, keys):
+    sum_values = {key: {inner_key: 0 for inner_key in keys} for key in keys}
+    count = len(dicts_list)
 
-    return {key: sum_value / count for key, sum_value in sum_metrics.items()}
+    for d in dicts_list:
+        for key, value in d.items():
+            if key in keys and isinstance(value, dict):
+                for inner_key, inner_value in value.items():
+                    if inner_key in sum_values[key].keys():
+                        sum_values[key][inner_key] += inner_value
+                    else:
+                        sum_values[key][inner_key] = inner_value
+    mean_values = {key: {inner_key: sum_value / count for inner_key, sum_value in inner_sum_values.items()} for key, inner_sum_values in sum_values.items()}
+    
+    return mean_values
+
+def compute_mean_metrics(metrics):
+    class_metrics = [d.pop("class_metrics") for d in metrics]
+    sum_metrics = {key: 0 for key in metrics[0].keys()}
+    count = len(metrics)
+
+    for metric in metrics:
+        for key, value in metric.items():
+            sum_metrics[key] += value
+
+    mean_metrics = {key: sum_value / count for key, sum_value in sum_metrics.items()}
+    mean_metrics['class_metrics'] = aggregate_dicts(class_metrics, ['0', '1', '2', '3', '4'])
+    return mean_metrics
 
 def count_labels(Y: List) -> dict:
     # Always use the first row each target, in case the targets are repeated
