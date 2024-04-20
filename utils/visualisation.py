@@ -4,6 +4,7 @@ import os
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 from sklearn.manifold import TSNE
 
 from utils.analysis import count_labels, measure_class_deviation
@@ -15,10 +16,10 @@ DPI = 800
 RESULTS_DIR = "results/"
 
 binary_classes = ['Normal', 'Arrhythmia']
-binary_colors = sns.color_palette("husl", n_colors=len(binary_classes))[::-1]
+binary_palette = sns.color_palette("husl", n_colors=len(binary_classes))[::-1]
 
 classes = ['Normal', 'Ventricular ectopic', 'Supraventricular ectopic', 'Fusion', 'Unknown']
-class_colors = sns.color_palette("husl", n_colors=len(classes))[::-1]
+categorical_palette = sns.color_palette("husl", n_colors=len(classes))[::-1]
 
 def _save_figure(filename: str):
     plt.savefig(os.path.join(RESULTS_DIR, filename), bbox_inches="tight", dpi=DPI)
@@ -60,10 +61,10 @@ def plot_data_distribution(Y: list, filename: str = "data-distribution.png", sho
     label_counts = count_labels(Y)
     if len(label_counts) > 2:
         class_labels = [classes[label] for label in label_counts.keys()]
-        colors = class_colors
+        colors = categorical_palette
     else:
         class_labels = [binary_classes[label] for label in label_counts.keys()]
-        colors = binary_colors
+        colors = binary_palette
 
     _, ax = plt.subplots(figsize=(12, 6))
     _, _, autotexts = ax.pie(label_counts.values(), labels=class_labels, autopct='%1.1f%%', colors=colors, textprops=dict(color="black"))
@@ -116,10 +117,10 @@ def plot_class_std(X, Y, show=True, filename="class_std.png"):
 
     if len(class_std) > 2:
         class_labels = [classes[label] for label in class_std.keys()]
-        colors = class_colors
+        colors = categorical_palette
     else:
         class_labels = [binary_classes[label] for label in class_std.keys()]
-        colors = binary_colors
+        colors = binary_palette
 
     _, ax = plt.subplots(figsize=(8, 6))
     bar_width = 0.5
@@ -144,10 +145,10 @@ def plot_class_mean(X, Y, show=True, filename="class_means.png"):
 
     if len(class_means) > 2:
         class_labels = [classes[label] for label in class_means.keys()]
-        colors = class_colors
+        colors = categorical_palette
     else:
         class_labels = [binary_classes[label] for label in class_means.keys()]
-        colors = binary_colors
+        colors = binary_palette
 
     _, ax = plt.subplots(figsize=(8, 6))
     bar_width = 0.5
@@ -183,10 +184,10 @@ def plot_average_instance(X, Y, show=True, filename="average_instances.png"):
 
     if len(class_means) > 2:
         class_labels = [classes[label] for label in class_means.keys()]
-        colors = class_colors
+        colors = categorical_palette
     else:
         class_labels = [binary_classes[label] for label in class_means.keys()]
-        colors = binary_colors
+        colors = binary_palette
 
     # Plot mean values for each timestep
     plt.figure(figsize=(12, 6))
@@ -232,6 +233,7 @@ def plot_metrics_table(metrics, show=True, filename="metrics-table.png"):
         plt.show()
 
 def plot_confusion_matrix(confusion_matrix, cmap=plt.cm.Blues, show=True, filename="confusion_matrix.png"):
+    confusion_matrix = confusion_matrix.astype('float') / confusion_matrix.sum(axis=1)[:, np.newaxis]
     labels = confusion_matrix.shape[0]
     if labels > 2:
         class_labels = [classes[i] for i in range(labels)]
@@ -239,7 +241,7 @@ def plot_confusion_matrix(confusion_matrix, cmap=plt.cm.Blues, show=True, filena
         class_labels = [binary_classes[i] for i in range(labels)]
 
     plt.figure(figsize=(8, 6))
-    sns.heatmap(confusion_matrix, annot=True, fmt='d', cmap=cmap, xticklabels=class_labels, yticklabels=class_labels)
+    sns.heatmap(confusion_matrix, annot=True, cmap=cmap, xticklabels=class_labels, yticklabels=class_labels)
 
     # Adjust font size and rotation for better readability
     plt.xticks(rotation=45, ha='right', fontsize=10)
@@ -261,7 +263,6 @@ def plot_metrics_across_folds(metrics, metric_names=["accuracy", "mse", "rmse", 
     plt.figure(figsize=(12, 6))
     for i in range(num_metrics):
         metric_values = [metrics[metric_names[i]] for metrics in metrics]
-        print(metric_values)
         plt.plot(range(1, num_folds + 1), metric_values, marker='o', label=metric_names[i])
 
     plt.xlabel('Fold')
@@ -281,7 +282,6 @@ def plot_class_metrics(metrics, filename="class-metrics.png", show=True):
         # Check if the key represents an individual class (numeric string)
         if key.isdigit():
             class_metrics[key] = metrics[key]
-    precisions = [metrics[i]['precision'] for i in class_metrics.keys()]
     precisions = [metrics[i]['precision'] for i in class_metrics.keys()]
     recalls = [metrics[i]['recall'] for i in class_metrics.keys()]
     f1_scores = [metrics[i]['f1-score'] for i in class_metrics.keys()]
@@ -313,23 +313,25 @@ def plot_class_metrics(metrics, filename="class-metrics.png", show=True):
         plt.show()
 
 
-def plot_tsne_clustering(Y_pred, Y_true, show=True):
+def plot_tsne_clustering(Y_pred, show=True):
     Y_pred_flat = np.array(Y_pred).reshape(len(Y_pred), -1)
     
     # Perform t-SNE embedding
     tsne = TSNE(n_components=2)
     tsne_embeddings = tsne.fit_transform(Y_pred_flat)
 
-    Y_true = np.argmax(Y_true, axis=-1)
-    ticks = np.unique(Y_true)
+    Y_pred = np.array([np.argmax(y_p) for y_p in Y_pred]).reshape(-1, 1)
 
-    colors = "RdYlGn_r"
+    ticks = np.unique(Y_pred)
+
     class_names = classes
+    colors = ListedColormap(categorical_palette)
     if len(ticks) == 2:
         class_names = binary_classes
+        colors = ListedColormap(binary_palette)
 
     plt.figure(figsize=(10, 8))
-    scatter = plt.scatter(x=tsne_embeddings[:, 0], y=tsne_embeddings[:, 1], c=Y_true, cmap=colors)
+    scatter = plt.scatter(x=tsne_embeddings[:, 0], y=tsne_embeddings[:, 1], c=Y_pred, cmap=colors)
     cbar = plt.colorbar(scatter, ticks=ticks)
     cbar.set_ticklabels([class_names[t] for t in ticks])
     cbar.set_label('Class')
@@ -338,5 +340,30 @@ def plot_tsne_clustering(Y_pred, Y_true, show=True):
     plt.ylabel('t-SNE Dimension 2')
 
     _save_figure(filename=os.path.join("metrics/", "test.png"))
+    if show:
+        plt.show()
+
+def plot_forecast_data(X_train, Y_train, X_test, Y_test, sample=500, show=True, filename="forecast_data.png"):
+    plt.plot(np.arange(sample), X_train[-sample:], label="Training data")
+    plt.plot(np.arange(sample), Y_train[-sample:], label="Training ground truth")
+    plt.plot(np.arange(sample, sample + len(X_test)), X_test, label="Testing data")
+    plt.plot(np.arange(sample, sample + len(Y_test)), Y_test, label="Testing ground truth")
+    plt.legend()
+
+    _save_figure(filename=os.path.join("forecasting/", filename))
+    if show:
+        plt.show()
+
+def plot_forecast_results(y_pred, y_test, sample=500, show=True, filename="forecast_prediction.png"):
+    plt.figure(figsize=(10, 6))
+    plt.plot(np.arange(sample), y_pred[:sample], lw=3, label="ESN Prediction")
+    plt.plot(np.arange(sample), y_test[:sample], linestyle="--", lw=2, label="True Value")
+    plt.plot(np.abs(y_test[:sample] - y_pred[:sample]), label="Absolute deviation")
+    plt.legend()
+    plt.xlabel("Time")
+    plt.ylabel("Value")
+    plt.title("Forecasting")
+
+    _save_figure(filename=os.path.join("forecasting/", filename))
     if show:
         plt.show()
