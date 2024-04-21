@@ -24,7 +24,7 @@ categorical_palette = sns.color_palette("husl", n_colors=len(classes))[::-1]
 def _save_figure(filename: str):
     plt.savefig(os.path.join(RESULTS_DIR, filename), bbox_inches="tight", dpi=DPI)
 
-def plot_states(states: np.ndarray, labels: List[str], title: str = "", xlabel: str = "Time", 
+def plot_states(states: np.ndarray, labels: List[str] = None, title: str = "", xlabel: str = "Time", 
          ylabel: str = "State", filename: str = "states.png", legend: bool = True, show: bool = True):
     """
     Plot a generic line graph.
@@ -41,9 +41,10 @@ def plot_states(states: np.ndarray, labels: List[str], title: str = "", xlabel: 
     """
     timesteps = len(states)
     time = np.linspace(0, timesteps, timesteps)
+
     plt.figure(figsize=(10, 6))
-    for i, label in enumerate(labels):
-        plt.plot(time, states[:, i], label=label)
+    for i in range(0, states.shape[1]):
+        plt.plot(time, states[:, i], label=labels[i] if labels else None)
 
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
