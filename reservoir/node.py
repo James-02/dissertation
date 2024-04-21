@@ -21,35 +21,11 @@ DEFAULT_HYPERS = {
     'd0': 0.88, 
     'D': 2.5, 
     'mu': 0.6,
-    'time': np.linspace(0, 1),
+    'time': np.linspace(0, 1)
 }
 
 class Oscillator():
-    """
-    A class representing an oscillator system.
-
-    Attributes:
-        timesteps (int): Number of timesteps to run the oscillator.
-        hypers (dict): Dictionary containing hyperparameters of the oscillator.
-        max_states (int): Maximum number of states to keep in history.
-        current_timestep (int): Current timestep of the oscillator.
-    
-    Raises:
-        RuntimeError: If delay is not greater than 0 or if initial_values does not contain exactly 4 values.
-    """
-
     def __init__(self, timesteps: int, delay: float, initial_values: list, hypers: dict = DEFAULT_HYPERS):
-        """
-        Initialize an oscillator node.
-
-        Args:
-            timesteps (int): Number of timesteps of the dataset, allows us to know when to clear states history.
-            delay (float): Delay parameter of the oscillator.
-            initial_values (list): List containing initial values of the oscillator's state.
-                The list must contain exactly 4 values.
-            hypers (dict, optional): Dictionary containing hyperparameters of the oscillator. 
-                Defaults to DEFAULT_HYPERS.
-        """
         if delay <= 0:
             raise RuntimeError("Delay must be > 0")
         
@@ -65,17 +41,7 @@ class Oscillator():
         self._current_timestep = 0
         self._states = self._reset_states()
 
-    
     def forward(self, x: np.ndarray) -> np.ndarray:
-        """
-        Run the oscillator for one timestep with input x.
-
-        Args:
-            x (np.ndarray): Input signal.
-
-        Returns:
-            np.ndarray: Current state of the oscillator (A, I, Hi, He).
-        """
         # Reset states if we have completed a full timeseries
         if self._current_timestep == self.timesteps:
             self._states = self._reset_states()
@@ -85,8 +51,7 @@ class Oscillator():
         self.hypers.update({'input': x})
 
         # Solve the delayed differential equations and extract the final row as the state
-        state = solve_dde(dde_system, self._history, self.hypers['time'], args=(self.hypers,))[-1]
-
+        state = solve_dde(dde_system, self._history, self.hypers['time'], args=(self.hypers,))[:, -1]
         # update the history of states
         self._update_history(state)
 
@@ -97,31 +62,26 @@ class Oscillator():
         return state
 
     def _reset_states(self):
-        """Reset the states of the oscillator to the initial conditions."""
         return np.array(self.hypers['initial_conditions']).reshape(1, -1)
 
     def _update_history(self, state: np.ndarray):
-        """
-        Append a new state to the states history vector.
-
-        Args:
-            state (np.ndarray): New state to be added to the history.
-        """
-        self._states = np.vstack((self._states[-(self._max_states - 1):], state))
+        if len(self._states) == self._max_states:
+            # If the size limit is reached, roll buffer to remove oldest state and append newest
+            self._states = np.vstack((self._states[1:], state))
+        else:
+            # Otherwise, simply append the new state
+            self._states = np.vstack((self._states, state))
 
     def _history(self, t: float, idx: int = None):
-        """
-        Return the interpolated history of states at time t.
+        # if delay is 0, return current state
+        if abs(t) == 0:
+            return self._states[-1]
 
-        Args:
-            t (float): Time at which the history is requested.
-            idx (int, Optional): Index of single value to interpolate.
-
-        Returns:
-            np.ndarray: Interpolated history of states at time t.
-        """
+        # if delay is greater than existing history, return oldest state (initial conditions)
         if abs(t) > self._states.shape[0]:
             if idx is None:
                 return self._states[0]
             return self._states[0, idx]
+        
+        # interpolate state at historical timepoint from history of states
         return interpolate_history(t, self._states, idx)

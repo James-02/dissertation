@@ -1,10 +1,9 @@
 import numpy as np
-
-from scipy.integrate import solve_ivp
+from scipy.integrate import odeint
 from typing import Callable, Tuple
 
 def solve_dde(func: Callable, history: Callable, t: np.ndarray, args: Tuple = ()) -> np.ndarray:
-    """Wrapper function which solves Delay Differential Equations using scipy's solve_ivp.
+    """Wrapper function which solves Delay Differential Equations using scipy's odeint.
 
     Args:
         func (callable): Function representing the system of delay differential equations.
@@ -15,7 +14,7 @@ def solve_dde(func: Callable, history: Callable, t: np.ndarray, args: Tuple = ()
     Returns:
         np.ndarray: Solution of the delay differential equations at the specified time points.
     """
-    return solve_ivp(lambda t, Y, args: func(Y, t, history, args), [t[0], t[-1]], history(t[0]), t_eval=t, args=args).y.T
+    return odeint(lambda Y, t, args: func(Y, t, history, args), history(t[0]), t, args=args, rtol=1e-3, atol=1e-4).T
 
 def dde_system(Y: np.ndarray, t: float, history: Callable, params: dict) -> np.ndarray:
     """
@@ -40,10 +39,10 @@ def dde_system(Y: np.ndarray, t: float, history: Callable, params: dict) -> np.n
     """
     # Extract system variables
     A, I, Hi, He = Y
-    
+
     # Value of Hi at 'delay' timesteps in the past
     delayed_Hi = history(t - params['delay'], 2) ** 2
-    
+
     # Precompute constant terms
     decay = 1 - (params['d'] / params['d0']) ** 4
     gene_promoter = (params['del_'] + params['alpha'] * delayed_Hi) / (1 + params['k1'] * delayed_Hi)
@@ -58,22 +57,24 @@ def dde_system(Y: np.ndarray, t: float, history: Callable, params: dict) -> np.n
     
     return np.array([dAdt, dIdt, dHidt, dHedt])
 
-def interpolate_history(t: float, states: np.ndarray, idx: int) -> np.ndarray:
+def interpolate_history(t: float, states: np.ndarray, idx: int = None) -> np.ndarray:
     """Interpolates history values at given time points.
 
     Args:
-        t (float): Time point to interpolate history at.
+        t (float or np.ndarray): Time point(s) to interpolate history at.
         states (np.ndarray): Array of historical states.
-        idx (int, Optional): Index to interpolate a single value.
+        idx (int, optional): Index to interpolate a single value.
 
     Returns:
-        List: Interpolated history values.
+        np.ndarray: Interpolated history values.
     """
+    # Generate indices for historical time points
     num_variables = states.shape[1]
     indices = np.arange(-states.shape[0] + 1, 1)
 
     if idx is None:
         # Interpolate all system values
-        return [np.interp(t, indices, states[:, i]) for i in range(num_variables)]
-    # Interpolate just the signal
+        return np.array([np.interp(t, indices, states[:, i]) for i in range(num_variables)])
+
+    # Interpolate just the single variable (Hi signal)
     return np.interp(t, indices, states[:, idx])
