@@ -16,21 +16,23 @@ from utils.preprocessing import load_ecg_data
 from utils.classification import classify
 from utils.logger import Logger
 
-rpy.verbosity(0)
+def objective(trial, dataset, params, idx = 0):
+    rpy.verbosity(0)
 
-def objective(trial, dataset, params):
     X_train, Y_train, X_test, Y_test = dataset
 
     sr = trial.suggest_float("sr", 0, 2)
     input_connectivity = trial.suggest_float("input_connectivity", 0, 1)
     rc_connectivity = trial.suggest_float("rc_connectivity", 0, 1)
     coupling = trial.suggest_float("coupling", 1e-6, 1e-2)
+    delay = trial.suggest_float("delay", 7, 10)
     rc_scaling = trial.suggest_float("rc_scaling", 1e-7, 1e-2)
+    nodes = trial.suggest_float("nodes", 0, 100)
 
-    reservoir = OscillatorReservoir(units=params['nodes'],
+    reservoir = OscillatorReservoir(units=nodes,
                                     timesteps=X_train[0].shape[0],
-                                    delay=params['delay'],
                                     sr=sr,
+                                    delay=delay,
                                     coupling=coupling,
                                     rc_scaling=rc_scaling,
                                     input_connectivity=input_connectivity,
@@ -40,7 +42,8 @@ def objective(trial, dataset, params):
 
     readout = Ridge(ridge=params['ridge'])
 
-    metrics = classify(reservoir, readout, X_train, Y_train, X_test, Y_test)
+    filename = f"optimization-{idx}"
+    metrics = classify(reservoir, readout, X_train, Y_train, X_test, Y_test, save_file=filename)
     return metrics['f1']
 
 
@@ -63,18 +66,17 @@ def plot_results(study, save=True):
     plot_and_save(plot_contour, "contour.png")
 
 
-def optimize_study(study, trials, dataset, params):
-    study.optimize(lambda trial: objective(trial, dataset, params), n_trials=trials)
+def optimize_study(study, trials, dataset, params, idx = 0):
+    study.optimize(lambda trial: objective(trial, dataset, params, idx), n_trials=trials)
 
-
-def research_multi(trials, processes):
+def research_multi(study, trials, dataset, params, processes):
     print(f"Optimization with n_process = {processes}")
     start_time = time.time()
 
     trials_per_process = trials // processes
 
     studies = joblib.Parallel(n_jobs=processes)(
-        joblib.delayed(optimize_study)(trials_per_process) for _ in range(processes))
+        joblib.delayed(optimize_study)(study, trials_per_process, dataset, params, idx) for idx in range(processes))
 
     end_time = time.time()
     print(f"Time Elapsed: {end_time - start_time}s")
@@ -82,8 +84,8 @@ def research_multi(trials, processes):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--trials', type=int, default=5)
-    parser.add_argument('--study_name', type=str, default="optimization-study")
+    parser.add_argument('--trials', type=int, default=25)
+    parser.add_argument('--study_name', type=str, default="optimization")
     parser.add_argument('--nodes', type=int, default=100)
     parser.add_argument('--instances', type=int, default=1000)
     parser.add_argument('--binary', type=bool, default=False)
@@ -92,7 +94,7 @@ if __name__ == "__main__":
     parser.add_argument('--processes', type=int, default=1)
     parser.add_argument('--job_id', type=int, default=0)
     args = parser.parse_args()
-
+    
     logger = Logger(log_file=f"logs/optimization-{args.job_id}.log")
     dataset = load_ecg_data(
         rows=args.instances,
@@ -105,11 +107,13 @@ if __name__ == "__main__":
 
     # Define the grid of parameter values as a dictionary
     param_values = {
-        'sr': [0.7, 0.9, 1.1],
-        'input_connectivity': [0.3, 0.5, 1.0],
-        'rc_connectivity': [0.3, 0.5, 1.0],
-        'coupling': [1e-2, 5e-3, 1e-4],
-        'rc_scaling': [1e-6, 8e-6, 1e-7]
+        'nodes': [50, 75, 100],
+        'sr': [0.9, 1.0, 0.8],
+        'input_connectivity': [0.1, 0.3, 0.5, 1.0],
+        'rc_connectivity': [0.1, 0.3, 0.5, 1.0],
+        'coupling': [1e-3, 1e-4, 5e-4, 1e-5],
+        'rc_scaling': [2e-6, 8e-6, 6e-6, 4e-6],
+        'delay': [7, 8, 9, 10],
     }
 
     # Create a list of parameter sets as dictionaries
@@ -136,7 +140,7 @@ if __name__ == "__main__":
 
     print("Processes Available: ", multiprocessing.cpu_count())
     if args.processes > 1:
-        research_multi(args.trials, args.processes)
+        research_multi(study, args.trials, dataset, params, args.processes)
     else:
         optimize_study(study, args.trials, dataset, params)
 
