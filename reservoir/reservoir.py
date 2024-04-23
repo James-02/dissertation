@@ -22,7 +22,7 @@ class OscillatorReservoir(Node):
         self,
         units: int = None,
         timesteps: int = None,
-        initial_values: list = [300, 300, 0, 0],
+        warmup: int = 40,
         coupling: float = 1e-3,
         sr: Optional[float] = None,
         input_bias: bool = True,
@@ -58,6 +58,7 @@ class OscillatorReservoir(Node):
         rng = rand_generator(seed)
 
         noise_kwargs = dict() if noise_kwargs is None else noise_kwargs
+        node_kwargs = dict() if node_kwargs is None else node_kwargs
 
         super(OscillatorReservoir, self).__init__(
             fb_initializer=partial(
@@ -78,7 +79,7 @@ class OscillatorReservoir(Node):
             hypers={
                 "timesteps": timesteps,
                 "coupling": coupling,
-                "initial_values": initial_values,
+                "warmup": warmup,
                 "sr": sr,
                 "rc_scaling": rc_scaling,
                 "input_scaling": input_scaling,
@@ -116,7 +117,7 @@ class OscillatorReservoir(Node):
         self.nodes = _initialize_nodes(self, node_kwargs)
 
 def _initialize_nodes(reservoir: Node, node_kwargs):
-    return [Oscillator(reservoir.timesteps, **node_kwargs) for _ in range(reservoir.units)]
+    return [Oscillator(reservoir.timesteps, warmup=reservoir.warmup, **node_kwargs) for _ in range(reservoir.units)]
 
 def _compute_input(reservoir, x):
     u = x.reshape(-1, 1)
