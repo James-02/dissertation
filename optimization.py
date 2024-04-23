@@ -22,22 +22,21 @@ def objective(trial, dataset, params, idx = 0):
     X_train, Y_train, X_test, Y_test = dataset
 
     sr = trial.suggest_float("sr", 0, 2)
+    coupling = trial.suggest_float("coupling", 1e-6, 1e-2)
     input_connectivity = trial.suggest_float("input_connectivity", 0, 1)
     rc_connectivity = trial.suggest_float("rc_connectivity", 0, 1)
-    coupling = trial.suggest_float("coupling", 1e-6, 1e-2)
-    delay = trial.suggest_float("delay", 7, 10)
     rc_scaling = trial.suggest_float("rc_scaling", 1e-7, 1e-2)
-    nodes = trial.suggest_float("nodes", 0, 100)
 
-    reservoir = OscillatorReservoir(units=nodes,
+    reservoir = OscillatorReservoir(units=params['nodes'],
                                     timesteps=X_train[0].shape[0],
                                     sr=sr,
-                                    delay=delay,
                                     coupling=coupling,
                                     rc_scaling=rc_scaling,
                                     input_connectivity=input_connectivity,
                                     rc_connectivity=rc_connectivity,
                                     input_scaling=params['input_scaling'],
+                                    bias_scaling = params['bias_scaling'],
+                                    node_kwargs={'delay': params['delay']},
                                     seed=params['seed'])
 
     readout = Ridge(ridge=params['ridge'])
@@ -107,23 +106,22 @@ if __name__ == "__main__":
 
     # Define the grid of parameter values as a dictionary
     param_values = {
-        'nodes': [50, 75, 100],
-        'sr': [0.9, 1.0, 0.8],
+        'sr': [0.8, 0.9, 1.0, 1.1],
         'input_connectivity': [0.1, 0.3, 0.5, 1.0],
         'rc_connectivity': [0.1, 0.3, 0.5, 1.0],
         'coupling': [1e-3, 1e-4, 5e-4, 1e-5],
         'rc_scaling': [2e-6, 8e-6, 6e-6, 4e-6],
-        'delay': [7, 8, 9, 10],
     }
 
     # Create a list of parameter sets as dictionaries
     params = {
         'nodes': args.nodes,
         'input_scaling': 1.0,
+        'bias_scaling': 1.0,
         'delay': 10,
         'seed': 1337,
         'ridge': 1e-5
-        }
+    }
 
     # Create the study with the GridSampler
     sampler = optuna.samplers.GridSampler(param_values)
