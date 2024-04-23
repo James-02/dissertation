@@ -42,7 +42,7 @@ def objective(trial, dataset, params, idx = 0):
 
     readout = Ridge(ridge=params['ridge'])
 
-    filename = f"optimization-{idx}"
+    filename = f"results/runs/optimization-{idx}"
     metrics = classify(reservoir, readout, X_train, Y_train, X_test, Y_test, save_file=filename)
     return metrics['f1']
 
@@ -52,8 +52,8 @@ def plot_results(study, save=True):
         results_dir = "results/metrics"
         os.makedirs(results_dir, exist_ok=True)
 
-    def plot_and_save(plot_func, filename):
-        plot_func(study)
+    def plot_and_save(plot_func, filename, params = None):
+        plot_func(study, params)
         if save:
             plt.savefig(os.path.join(results_dir, filename))
         plt.show()
