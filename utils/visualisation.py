@@ -253,7 +253,7 @@ def plot_confusion_matrix(confusion_matrix, cmap=plt.cm.Blues, show=True, filena
     plt.ylabel('True Label', fontsize=12)
     plt.tight_layout()
 
-    _save_figure(filename=os.path.join("preprocessing/", filename))
+    _save_figure(filename=os.path.join("metrics/", filename))
     if show:
         plt.show()
 

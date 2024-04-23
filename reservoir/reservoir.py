@@ -22,7 +22,6 @@ class OscillatorReservoir(Node):
         self,
         units: int = None,
         timesteps: int = None,
-        delay: float = 7,
         initial_values: list = [300, 300, 0, 0],
         coupling: float = 1e-3,
         sr: Optional[float] = None,
@@ -47,6 +46,7 @@ class OscillatorReservoir(Node):
         input_dim: Optional[int] = None,
         feedback_dim: Optional[int] = None,
         seed=None,
+        node_kwargs: Dict = None,
         **kwargs,
     ):
         if units is None and not is_array(W):
@@ -78,7 +78,6 @@ class OscillatorReservoir(Node):
             hypers={
                 "timesteps": timesteps,
                 "coupling": coupling,
-                "delay": delay,
                 "initial_values": initial_values,
                 "sr": sr,
                 "rc_scaling": rc_scaling,
@@ -114,10 +113,10 @@ class OscillatorReservoir(Node):
             input_dim=input_dim,
             **kwargs,
         )
-        self.nodes = _initialize_nodes(self)
+        self.nodes = _initialize_nodes(self, node_kwargs)
 
-def _initialize_nodes(reservoir: Node):
-    return [Oscillator(reservoir.timesteps, reservoir.delay, reservoir.initial_values) for _ in range(reservoir.units)]
+def _initialize_nodes(reservoir: Node, node_kwargs):
+    return [Oscillator(reservoir.timesteps, **node_kwargs) for _ in range(reservoir.units)]
 
 def _compute_input(reservoir, x):
     u = x.reshape(-1, 1)

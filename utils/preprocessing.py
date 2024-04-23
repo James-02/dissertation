@@ -40,13 +40,13 @@ def load_mackey_glass(timesteps=2510, test_ratio=0.2, tau=17):
 def load_ecg_forecast(timesteps=1000, forecast=10, test_ratio=0.2):
     # Read the CSV file and extract the 'MLII' column
     df = pd.read_csv("data/ecg/mit-bih-100.csv")
-    data = df[['MLII']].values
+    X = df[['MLII']].values[:timesteps]
+
+    # Rescale between -1 and 1
+    X = 2 * (X - X.min()) / (X.max() - X.min()) - 1
 
     # Use the to_forecasting function to create input-output pairs for forecasting
-    X, Y = to_forecasting(data[:timesteps], forecast=forecast)
-
-    # rescale between 1 and -1
-    X, Y = _normalize(X), _normalize(Y)
+    X, Y = to_forecasting(X, forecast=forecast)
 
     train_size = int(len(X) * (1 - test_ratio))
 

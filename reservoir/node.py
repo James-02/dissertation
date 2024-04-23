@@ -4,7 +4,7 @@ import math
 from .dde import solve_dde, dde_system, interpolate_history
 
 # Default hyperparameters for the oscillator
-DEFAULT_HYPERS = {
+DEFAULT_PARAMS = {
     'CA': 1,
     'CI': 4,
     'del_': 1e-3, 
@@ -21,21 +21,21 @@ DEFAULT_HYPERS = {
     'd0': 0.88, 
     'D': 2.5, 
     'mu': 0.6,
+    'delay': 10,
+    'initial_conditions': [0, 100, 0, 0],
     'time': np.linspace(0, 1)
 }
 
 class Oscillator():
-    def __init__(self, timesteps: int, delay: float, initial_values: list, hypers: dict = DEFAULT_HYPERS):
-        if delay <= 0:
-            raise RuntimeError("Delay must be > 0")
-        
-        if len(initial_values) != 4:
-            raise RuntimeError("Initial values must be a list of 4 values")
-
+    def __init__(self, timesteps: int, **kwargs):
+        self.hypers = {**DEFAULT_PARAMS, **kwargs}
         self.timesteps = timesteps
-        self.hypers = hypers
-        self.hypers['delay'] = delay
-        self.hypers['initial_conditions'] = initial_values
+
+        if self.hypers['delay'] <= 0:
+            raise ValueError("Delay must be specified and > 0")
+        
+        if len(self.hypers['initial_conditions']) != 4:
+            raise ValueError("Initial conditions must be a list of 4 values")
 
         self._max_states = math.ceil(self.hypers['delay'])
         self._current_timestep = 0
