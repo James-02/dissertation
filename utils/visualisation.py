@@ -12,13 +12,15 @@ from utils.analysis import count_labels, measure_class_deviation
 # set global visualisation config
 sns.set_style("ticks")
 
+plt.rcParams.update({'font.size': 15})
+
 DPI = 800
 RESULTS_DIR = "results/"
 
 binary_classes = ['Normal', 'Arrhythmia']
 binary_palette = sns.color_palette("husl", n_colors=len(binary_classes))[::-1]
 
-classes = ['Normal', 'Ventricular ectopic', 'Supraventricular ectopic', 'Fusion', 'Unknown']
+classes = ['Normal', 'Ventricular', 'Supraventricular', 'Fusion', 'Unknown']
 categorical_palette = sns.color_palette("husl", n_colors=len(classes))[::-1]
 
 def _save_figure(filename: str):
@@ -203,36 +205,6 @@ def plot_average_instance(X, Y, show=True, filename="average_instances.png"):
     if show:
         plt.show()
 
-def plot_metrics_table(metrics, show=True, filename="metrics-table.png"):
-    # Filter metrics to include only those with values of type int, float, or str
-    filtered_metrics = {key: value for key, value in metrics.items() if isinstance(value, (int, float, str))}
-
-    # Round all values to 4 decimal places
-    filtered_metrics = {key: round(value, 4) if isinstance(value, (int, float)) else value for key, value in filtered_metrics.items()}
-
-    # Create data for the table
-    column_labels = ['Metric', 'Value']
-    table_data = [[key, value] for key, value in filtered_metrics.items()]
-
-    # Plot table of metrics
-    plt.figure(figsize=(8, len(filtered_metrics) * 0.5))
-    plt.table(cellText=table_data,
-                      colLabels=column_labels,
-                      loc='left')
-
-    # Hide axes
-    ax = plt.gca()
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-    plt.box(on=None)
-    plt.tight_layout()
-
-    # Save or show the plot
-    _save_figure(filename=os.path.join("preprocessing/", filename))
-
-    if show:
-        plt.show()
-
 def plot_confusion_matrix(confusion_matrix, cmap=plt.cm.Blues, show=True, filename="confusion_matrix.png"):
     confusion_matrix = confusion_matrix.astype('float') / confusion_matrix.sum(axis=1)[:, np.newaxis]
     labels = confusion_matrix.shape[0]
@@ -241,16 +213,16 @@ def plot_confusion_matrix(confusion_matrix, cmap=plt.cm.Blues, show=True, filena
     else:
         class_labels = [binary_classes[i] for i in range(labels)]
 
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(10, 8))
     sns.heatmap(confusion_matrix, annot=True, cmap=cmap, xticklabels=class_labels, yticklabels=class_labels)
 
     # Adjust font size and rotation for better readability
-    plt.xticks(rotation=45, ha='right', fontsize=10)
-    plt.yticks(rotation=0, fontsize=10)
+    plt.xticks(rotation=30, ha='right', fontsize=14)
+    plt.yticks(rotation=0, fontsize=14)
 
-    plt.title('Confusion Matrix', fontsize=14)
-    plt.xlabel('Predicted Label', fontsize=12)
-    plt.ylabel('True Label', fontsize=12)
+    plt.title('Confusion Matrix', fontsize=16)
+    plt.xlabel('Predicted Label', fontsize=16)
+    plt.ylabel('True Label', fontsize=16)
     plt.tight_layout()
 
     _save_figure(filename=os.path.join("metrics/", filename))
@@ -260,19 +232,21 @@ def plot_confusion_matrix(confusion_matrix, cmap=plt.cm.Blues, show=True, filena
 def plot_metrics_across_folds(metrics, metric_names=["accuracy", "mse", "rmse", "f1"], show=True, filename="metrics_folds.png"):
     num_folds = len(metrics)
     num_metrics = len(metric_names)
+    bar_width = 0.2
+    index = np.arange(num_folds)
 
     plt.figure(figsize=(12, 6))
     for i in range(num_metrics):
-        metric_values = [metrics[metric_names[i]] for metrics in metrics]
-        plt.plot(range(1, num_folds + 1), metric_values, marker='o', label=metric_names[i])
+        metric_values = [metrics[j][metric_names[i]] for j in range(num_folds)]
+        plt.bar(index + i * bar_width, metric_values, bar_width, label=metric_names[i])
 
     plt.xlabel('Fold')
     plt.ylabel('Value')
-    plt.xticks(range(1, num_folds + 1))
+    plt.xticks(index + bar_width * (num_metrics - 1) / 2, range(1, num_folds + 1))
     plt.legend()
     plt.tight_layout()
 
-    _save_figure(filename=os.path.join("folds/", filename))
+    _save_figure(filename=os.path.join("metrics/", filename))
     if show:
         plt.show()
 
@@ -309,6 +283,24 @@ def plot_class_metrics(metrics, filename="class-metrics.png", show=True):
     plt.tight_layout()
 
     _save_figure(filename=os.path.join("metrics/", filename))
+
+    if show:
+        plt.show()
+
+def plot_noise(X, noise, noisy_X, show=True):
+    sampling_freq = 125
+    num_samples = len(X)
+    time_ms = np.arange(num_samples) / sampling_freq * 1000
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(time_ms, X, label="Training Data", linestyle="solid", color="orange")
+    plt.plot(time_ms, noise, linestyle="dotted", label="Noise", color="green")
+    plt.plot(time_ms, noisy_X, linestyle="dashed", label="Augmented Data", color="blue")
+    plt.ylabel('Normalized Value')
+    plt.xlabel('Time (ms)')
+    plt.xticks()
+    plt.yticks()
+    plt.legend()
 
     if show:
         plt.show()
