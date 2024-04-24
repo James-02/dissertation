@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from utils.logger import Logger
-from utils.analysis import count_labels, log_params
+from utils.analysis import count_labels, log_params, measure_dataset_deviation
 
 from reservoirpy.datasets import to_forecasting, mackey_glass
 
@@ -58,8 +58,8 @@ def load_ecg_forecast(timesteps=1000, forecast=10, test_ratio=0.2):
 
 
 def load_ecg_data(rows: int = None, test_ratio: float = 0.2, encode_labels: bool = True, normalize: bool = True, 
-                    repeat_targets: bool = False, shuffle: bool = True, binary: bool = False,
-                    data_dir: str = "data/ecg", train_file: str = "ecg_train.csv",
+                    repeat_targets: bool = False, shuffle: bool = True, binary: bool = False, noise_rate: float = 0.2, 
+                    noise_ratio: float = 0.2, data_dir: str = "data/ecg", train_file: str = "ecg_train.csv",
                     test_file: str = "ecg_test.csv", save_file: str = "ecg_data.npz",
                     binary_save_file: str = "binary_ecg_data.npz") -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -104,13 +104,16 @@ def load_ecg_data(rows: int = None, test_ratio: float = 0.2, encode_labels: bool
 
     logger.debug(f"Limiting instances to {rows} rows")
     X_limited, Y_limited = _limit_instances(X_balanced, Y_balanced, rows)
-
     num_rows = X_limited.shape[0]
     if num_rows < rows:
         logger.warning(f"The {rows} rows requested were capped at {num_rows} rows to keep classes balanced.")
 
     logger.debug("Splitting dataset into training and testing sets")
     X_train, Y_train, X_test, Y_test = _train_test_split(X_limited, Y_limited, test_size=test_ratio, shuffle=shuffle)
+
+    # add augmentation (noise) to training set
+    if noise_rate and noise_ratio:
+        X_train, Y_train = _augment_data(X_train, Y_train, noise_rate, noise_ratio)
 
     if encode_labels:
         num_classes = len(np.unique(Y_limited))
@@ -143,7 +146,7 @@ def load_ecg_data(rows: int = None, test_ratio: float = 0.2, encode_labels: bool
               "test_shapes": test_shapes,
               "train_labels": count_labels(Y_train),
               "test_labels": count_labels(Y_test),
-            }
+    }
 
     log_params(params, title="Dataset Parameters")
 
@@ -160,6 +163,59 @@ def _balance_classes(X: np.ndarray, Y: np.ndarray) -> Tuple[np.ndarray, np.ndarr
     min_instances_per_class = min(counts)
     balanced_indices = [np.random.choice(np.where(Y == c)[0], min_instances_per_class, replace=False) for c in classes]
     return X[np.concatenate(balanced_indices)], Y[np.concatenate(balanced_indices)]
+
+def _augment_data(X, Y, noise_rate, augmentation_ratio):
+    num_classes = len(np.unique(Y))
+    num_instances = int(augmentation_ratio * len(X))
+    num_instances_per_class = num_instances // num_classes
+
+    # Create empty arrays to store augmented data
+    X_augmented = np.empty((0, X.shape[1]))
+    Y_augmented = np.empty(0)
+
+    # Loop through each class
+    for class_label in np.unique(Y):
+        # Find instances belonging to the current class
+        class_instances = X[Y == class_label]
+
+        # Ensure there are enough instances for augmentation
+        if len(class_instances) < num_instances_per_class:
+            raise ValueError("Not enough instances in class {} for augmentation.".format(class_label))
+
+        # Randomly choose instances from the current class
+        indices = np.random.choice(len(class_instances), num_instances_per_class, replace=True)
+        instances = class_instances[indices]
+
+        # Calculate the mean and standard deviation of the instances
+        mean, std = measure_dataset_deviation(instances)
+
+        # generate noise
+        noise = np.random.lognormal(mean=mean, sigma=std + (1 - noise_rate), size=instances.shape)
+
+        # Scale noisy instances back to the range [0, 1]
+        noise = (noise - np.min(noise)) / (np.max(noise) - np.min(noise))
+        noisy_instances = instances + noise
+
+        # Concatenate the noisy instances to the augmented data
+        X_augmented = np.concatenate((X_augmented, noisy_instances), axis=0)
+
+        # Create labels for the augmented instances
+        augmented_labels = np.full(num_instances_per_class, class_label)
+        Y_augmented = np.concatenate((Y_augmented, augmented_labels))
+
+    # Shuffle the augmented instances and labels
+    shuffle_indices = np.random.permutation(len(X_augmented))
+    X_augmented = X_augmented[shuffle_indices]
+    Y_augmented = Y_augmented[shuffle_indices]
+
+    # Concatenate the original data with the augmented data
+    X_augmented = np.concatenate((X, X_augmented), axis=0)
+    Y_augmented = np.concatenate((Y, Y_augmented))
+
+    # # Normalize augmented instances within dataset
+    X_augmented = _normalize(X_augmented)
+
+    return X_augmented, Y_augmented
 
 def _preprocess_dataset(train_df: pd.DataFrame, test_df: pd.DataFrame, binary: bool) -> Tuple[np.ndarray, np.ndarray]:
     # Concatenate train and test datasets
