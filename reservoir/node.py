@@ -35,32 +35,36 @@ class Oscillator():
         if self.hypers['delay'] <= 0:
             raise ValueError("Delay must be specified and > 0")
         
-        # initialize random initial conditions
-        self.hypers['initial_conditions'] = np.zeros(4)
+        # Initialize random initial conditions
+        self._initialize_initial_conditions()
 
-        # Randomise initial state of I gene
-        self.hypers['initial_conditions'][1] = np.random.randint(50, 100)
-
-        # control history of states
+        # Control history of states
         self._current_timestep = 0
         self._max_states = math.ceil(self.hypers['delay'])
 
-        # warmup genes to start oscillating without input
-        self._initial_states = self._warmup_states()
-        self._states = self._initial_states
+        # Warmup genes to start oscillating without input
+        self.warmup_states = []
+        self.initial_states = self._warmup_states()
+        self._states = self.initial_states
+
+    def _initialize_initial_conditions(self):
+        self.hypers['initial_conditions'] = np.zeros(4)
+        self.hypers['initial_conditions'][0] = np.random.randint(30, 60)
+        self.hypers['initial_conditions'][1] = np.random.randint(30, 60)
 
     def _warmup_states(self):
         self.hypers['input'] = 0
         self._states = np.array(self.hypers['initial_conditions']).reshape(1, -1)
         for _ in range(self.warmup):
             state = solve_dde(dde_system, self._history, self.hypers['time'], args=(self.hypers,))[:, -1]
+            self.warmup_states.append(state)
             self._update_history(state)
         return self._states
 
     def forward(self, x: np.ndarray) -> np.ndarray:       
         # Reset states if we have completed a full timeseries
         if self._current_timestep == self.timesteps:
-            self._states = self._initial_states
+            self._states = self.initial_states
             self._current_timestep = 0
 
         # Update the parameters to add the input signal
