@@ -6,7 +6,6 @@ import pandas as pd
 
 from utils.logger import Logger
 from utils.analysis import count_labels, log_params, measure_dataset_deviation
-
 from reservoirpy.datasets import to_forecasting, mackey_glass
 
 DEFAULT_LOG_LEVEL = 1
@@ -58,8 +57,8 @@ def load_ecg_forecast(timesteps=1000, forecast=10, test_ratio=0.2):
 
 
 def load_ecg_data(rows: int = None, test_ratio: float = 0.2, encode_labels: bool = True, normalize: bool = True, 
-                    repeat_targets: bool = False, shuffle: bool = True, binary: bool = False, noise_rate: float = 0.2, 
-                    noise_ratio: float = 0.2, data_dir: str = "data/ecg", train_file: str = "ecg_train.csv",
+                    repeat_targets: bool = False, shuffle: bool = True, binary: bool = False, noise_rate: float = 0, 
+                    noise_ratio: float = 0, data_dir: str = "data/ecg", train_file: str = "ecg_train.csv",
                     test_file: str = "ecg_test.csv", save_file: str = "ecg_data.npz",
                     binary_save_file: str = "binary_ecg_data.npz") -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -112,8 +111,6 @@ def load_ecg_data(rows: int = None, test_ratio: float = 0.2, encode_labels: bool
     X_train, Y_train, X_test, Y_test = _train_test_split(X_limited, Y_limited, test_size=test_ratio, shuffle=shuffle)
 
     # add augmentation (noise) to training set
-    if noise_rate and noise_ratio:
-        X_train, Y_train = _augment_data(X_train, Y_train, noise_rate, noise_ratio)
 
     if encode_labels:
         num_classes = len(np.unique(Y_limited))
@@ -130,6 +127,9 @@ def load_ecg_data(rows: int = None, test_ratio: float = 0.2, encode_labels: bool
         logger.debug(f"Repeating train and test targets to size: {X_train[0].shape[0]}")
         Y_train = [np.repeat(Y_instance, X_instance.shape[0], axis=0) for X_instance, Y_instance in zip(X_train, Y_train)]
         Y_test = [np.repeat(Y_instance, X_instance.shape[0], axis=0) for X_instance, Y_instance in zip(X_test, Y_test)]
+    
+    if noise_rate and noise_ratio:
+        X_train, Y_train = augment_data(np.array(X_train), np.array(Y_train), noise_rate, noise_ratio)
 
     train_shapes = (X_train[0].shape, Y_train[0].shape)
     test_shapes = (X_test[0].shape, Y_test[0].shape)
@@ -164,56 +164,49 @@ def _balance_classes(X: np.ndarray, Y: np.ndarray) -> Tuple[np.ndarray, np.ndarr
     balanced_indices = [np.random.choice(np.where(Y == c)[0], min_instances_per_class, replace=False) for c in classes]
     return X[np.concatenate(balanced_indices)], Y[np.concatenate(balanced_indices)]
 
-def _augment_data(X, Y, noise_rate, augmentation_ratio):
-    num_classes = len(np.unique(Y))
+def augment_data(X, Y, noise_rate, augmentation_ratio):
+    if not noise_rate or not augmentation_ratio:
+        logger.debug("Noise rate or ratio of 0, no data was augmented.")
+        return X, Y
+
+    # Flatten Y to handle both one-hot encoded and categorical labels
+    Y_flat = np.argmax([y[0] for y in Y], axis=1) if len(Y.shape) > 1 else Y
+
+    num_classes = len(np.unique(Y_flat))
     num_instances = int(augmentation_ratio * len(X))
     num_instances_per_class = num_instances // num_classes
 
-    # Create empty arrays to store augmented data
-    X_augmented = np.empty((0, X.shape[1]))
+    X_augmented = np.empty((0, X.shape[1], X.shape[2]))
     Y_augmented = np.empty(0)
 
-    # Loop through each class
-    for class_label in np.unique(Y):
-        # Find instances belonging to the current class
-        class_instances = X[Y == class_label]
+    for class_label in np.unique(Y_flat):
+        class_instances = X[Y_flat == class_label]
 
-        # Ensure there are enough instances for augmentation
         if len(class_instances) < num_instances_per_class:
-            raise ValueError("Not enough instances in class {} for augmentation.".format(class_label))
+            raise ValueError(f"Not enough instances in class {class_label} for augmentation.")
 
-        # Randomly choose instances from the current class
         indices = np.random.choice(len(class_instances), num_instances_per_class, replace=True)
         instances = class_instances[indices]
 
-        # Calculate the mean and standard deviation of the instances
         mean, std = measure_dataset_deviation(instances)
-
-        # generate noise
         noise = np.random.lognormal(mean=mean, sigma=std + (1 - noise_rate), size=instances.shape)
-
-        # Scale noisy instances back to the range [0, 1]
         noise = (noise - np.min(noise)) / (np.max(noise) - np.min(noise))
         noisy_instances = instances + noise
 
-        # Concatenate the noisy instances to the augmented data
         X_augmented = np.concatenate((X_augmented, noisy_instances), axis=0)
 
-        # Create labels for the augmented instances
         augmented_labels = np.full(num_instances_per_class, class_label)
         Y_augmented = np.concatenate((Y_augmented, augmented_labels))
 
-    # Shuffle the augmented instances and labels
     shuffle_indices = np.random.permutation(len(X_augmented))
     X_augmented = X_augmented[shuffle_indices]
     Y_augmented = Y_augmented[shuffle_indices]
 
-    # Concatenate the original data with the augmented data
+    if len(Y.shape) > 1:
+        Y_augmented = _one_hot_encode(Y_augmented.reshape(-1, 1), num_classes)
+
     X_augmented = np.concatenate((X, X_augmented), axis=0)
     Y_augmented = np.concatenate((Y, Y_augmented))
-
-    # # Normalize augmented instances within dataset
-    X_augmented = _normalize(X_augmented)
 
     return X_augmented, Y_augmented
 
