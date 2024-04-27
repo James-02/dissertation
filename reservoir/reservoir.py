@@ -143,9 +143,6 @@ def _compute_input(reservoir, x):
 def forward_reservoir(reservoir: Node, x: np.ndarray) -> np.ndarray:
     states = np.zeros((len(reservoir.nodes), x.shape[0]))
 
-    # Normalize input between 0-1
-    x = (x - 0) / (1 - 0)
-
     # Calculate pre_state
     pre_state = _compute_input(reservoir, x)
 
