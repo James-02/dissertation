@@ -3,10 +3,13 @@ import os
 
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
 
 from utils.logger import Logger
 from utils.analysis import count_labels, log_params, measure_dataset_deviation
 from reservoirpy.datasets import to_forecasting, mackey_glass
+
+from utils.visualisation import plot_noise, plot_average_instance
 
 DEFAULT_LOG_LEVEL = 1
 
@@ -56,7 +59,7 @@ def load_ecg_forecast(timesteps=1000, forecast=10, test_ratio=0.2):
     return X_train, Y_train, X_test, Y_test
 
 
-def load_ecg_data(rows: int = None, test_ratio: float = 0.2, encode_labels: bool = True, normalize: bool = True, 
+def load_ecg_data(rows: int = None, test_ratio: float = 0.2, encode_labels: bool = True, standardize: bool = True, 
                     repeat_targets: bool = False, shuffle: bool = True, binary: bool = False, noise_rate: float = 0, 
                     noise_ratio: float = 0, data_dir: str = "data/ecg", train_file: str = "ecg_train.csv",
                     test_file: str = "ecg_test.csv", save_file: str = "ecg_data.npz",
@@ -94,10 +97,6 @@ def load_ecg_data(rows: int = None, test_ratio: float = 0.2, encode_labels: bool
         rows = len(X_loaded)
         logger.warning("Number of rows not specified, implicitly using all rows.")
 
-    if normalize:
-        logger.debug("Normalizing inputs")
-        X_loaded = _normalize(X_loaded)
-
     logger.debug("Balancing classes")
     X_balanced, Y_balanced = _balance_classes(X_loaded, Y_loaded)
 
@@ -110,10 +109,8 @@ def load_ecg_data(rows: int = None, test_ratio: float = 0.2, encode_labels: bool
     logger.debug("Splitting dataset into training and testing sets")
     X_train, Y_train, X_test, Y_test = _train_test_split(X_limited, Y_limited, test_size=test_ratio, shuffle=shuffle)
 
-    # add augmentation (noise) to training set
-
     if encode_labels:
-        num_classes = len(np.unique(Y_limited))
+        num_classes = len(np.unique(Y_loaded))
         logger.debug("One-hot encoding labels.")
         Y_train = _one_hot_encode(Y_train, num_classes)
         Y_test = _one_hot_encode(Y_test, num_classes)
@@ -127,35 +124,57 @@ def load_ecg_data(rows: int = None, test_ratio: float = 0.2, encode_labels: bool
         logger.debug(f"Repeating train and test targets to size: {X_train[0].shape[0]}")
         Y_train = [np.repeat(Y_instance, X_instance.shape[0], axis=0) for X_instance, Y_instance in zip(X_train, Y_train)]
         Y_test = [np.repeat(Y_instance, X_instance.shape[0], axis=0) for X_instance, Y_instance in zip(X_test, Y_test)]
-    
+
+    # add augmentation (noise) to training set
     if noise_rate and noise_ratio:
         X_train, Y_train = augment_data(np.array(X_train), np.array(Y_train), noise_rate, noise_ratio)
 
+    if standardize:
+        X_train, X_test = standardize_data(X_train, X_test)
+
     train_shapes = (X_train[0].shape, Y_train[0].shape)
     test_shapes = (X_test[0].shape, Y_test[0].shape)
-    params = {"instances": num_rows,
-              "encode_labels": encode_labels,
-              "repeat_targets": repeat_targets,
-              "normalize": normalize,
-              "test_ratio": test_ratio,
-              "shuffle": shuffle,
-              "binary": binary,
-              "train_instances": len(X_train),
-              "test_instances": len(X_test),
-              "train_shapes": train_shapes,
-              "test_shapes": test_shapes,
-              "train_labels": count_labels(Y_train),
-              "test_labels": count_labels(Y_test),
+
+    params = {
+        "instances": num_rows,
+        "encode_labels": encode_labels,
+        "repeat_targets": repeat_targets,
+        "standardize": standardize,
+        "test_ratio": test_ratio,
+        "shuffle": shuffle,
+        "binary": binary,
+        "noise_rate": noise_rate,
+        "noise_ratio": noise_ratio,
+        "train_instances": len(X_train),
+        "test_instances": len(X_test),
+        "train_shapes": train_shapes,
+        "test_shapes": test_shapes,
+        "train_labels": count_labels(Y_train),
+        "test_labels": count_labels(Y_test),
     }
 
     log_params(params, title="Dataset Parameters")
 
     return X_train, Y_train, X_test, Y_test
 
-def _normalize(X: np.ndarray) -> np.ndarray:
-    min_vals = np.min(X, axis=0)
-    max_vals = np.max(X, axis=0)
-    return (X - min_vals) / (max_vals - min_vals)
+def standardize_data(X_train, X_test):
+    # convert into correct shape
+    X_train = np.array(X_train)
+    X_test = np.array(X_test)
+
+    X_train = X_train.reshape(X_train.shape[0], X_train.shape[1])
+    X_test = X_test.reshape(X_test.shape[0], X_test.shape[1])
+
+    scaler = MinMaxScaler()
+    scaler.fit(X_train)
+
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
+    X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
+
+    return X_train, X_test
 
 def _balance_classes(X: np.ndarray, Y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     Y = Y.astype(int)
@@ -188,9 +207,14 @@ def augment_data(X, Y, noise_rate, augmentation_ratio):
         indices = np.random.choice(len(class_instances), num_instances_per_class, replace=True)
         instances = class_instances[indices]
 
-        mean, std = measure_dataset_deviation(instances)
-        noise = np.random.lognormal(mean=mean, sigma=std + (1 - noise_rate), size=instances.shape)
-        noise = (noise - np.min(noise)) / (np.max(noise) - np.min(noise))
+        # Generate noise using a normal distribution
+        noise = np.random.normal(0, noise_rate, instances.shape)
+        
+        # Scale the noise to have similar range as the instances
+        noise_min = np.min(noise, axis=1, keepdims=True)
+        noise_max = np.max(noise, axis=1, keepdims=True)
+        noise_range = noise_max - noise_min
+        noise = (noise - noise_min) / noise_range * (noise_rate)
         noisy_instances = instances + noise
 
         X_augmented = np.concatenate((X_augmented, noisy_instances), axis=0)
