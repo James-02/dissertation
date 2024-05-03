@@ -1,3 +1,9 @@
+import sys
+import os
+
+# add relative path to allow importing of utils
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import argparse
 import optuna
 import numpy as np
@@ -151,7 +157,6 @@ def load_data(filename):
 if __name__ == "__main__":
     filename = "results/runs/OscillatorReservoir-250-3215-fold-0.npz"
 
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--trials', type=int, default=100)
     parser.add_argument('--study_name', type=str, default="readout")
@@ -160,7 +165,7 @@ if __name__ == "__main__":
     parser.add_argument('--processes', type=int, default=1)
     args = parser.parse_args()
 
-    logger = Logger(log_file=f"logs/optimization-{args.job_id}.log")
+    logger = Logger(log_file=f"logs/readout-optimization-{args.job_id}.log")
     db_name = f"logs/optuna-{args.study_name}.db"
 
     storage = optuna.storages.RDBStorage(f'sqlite:///{db_name}')
@@ -175,23 +180,30 @@ if __name__ == "__main__":
         load_if_exists=True
     )
 
-    params = {"classifiers": ["Ridge", "Bayes", "LR", "Perceptron", "SVM", "MLP", "KNN", "DT", "RF", "GB"]}
+    params = {
+        "classifiers": ["Ridge", "Bayes", "LR", "Perceptron", "SVM", "MLP", "KNN", "DT", "RF", "GB"],
+        "study_name": args.study_name,
+        "job_id": args.job_id,
+        "load_file": args.load_file
+    }
 
-    study = research(study, args.trials, objective, args.processes, **params)
+    # study = research(study, args.trials, objective, processes=args.processes, **params)
 
     # Run optimization for each classifier
     for classifier_name in [
         "Ridge", "Bayes", "LR", "Perceptron", "SVM", "MLP", "KNN", "DT", "RF", "GB"
     ]:
-        evaluate_study(study)
+        study_df = study.trials_dataframe()
+        classifier_study = study_df[study_df['params_classifier'] == classifier_name]
+        evaluate_study(classifier_study, "F1 Score")
 
+    plot_results(study, plot_slice, params=["ridge_alpha", "ridge_fit_intercept", "ridge_copy_X", "ridge_solver", "ridge_tol"], filename="ridge")
+    plot_results(study, plot_slice, params=["lr_tol", "lr_fit_intercept", "lr_intercept_scaling", "lr_C", "lr_solver"], filename="lr")
+    plot_results(study, plot_slice, params=["perceptron_penalty", "perceptron_alpha", "perceptron_l1_ratio", "perceptron_tol", "perceptron_eta0", "perceptron_fit_intercept"], filename="perceptron")
+    plot_results(study, plot_slice, params=["svc_kernel", "svc_C", "svc_gamma", "svc_tol", "svc_degree"], filename="svm")
+    plot_results(study, plot_slice, params=["bayes_var_smoothing"], filename="bayes")
+    plot_results(study, plot_slice, params=["mlp_hidden_layer_sizes", "mlp_solver", "mlp_alpha", "mlp_activation", "mlp_tol", "mlp_learning_rate_init", "mlp_power_t", "mlp_momentum", "mlp_epsilon"], filename="mlp")
     plot_results(study, plot_slice, params=["knn_n_neighbors", "knn_weights", "knn_leaf_size", "knn_p", "knn_algorithm"], filename="knn")
     plot_results(study, plot_slice, params=["dt_criterion", "min_samples_split", "min_samples_leaf"], filename="dt")
-    plot_results(study, params=["svc_kernel", "svc_C", "svc_gamma", "svc_tol", "svc_degree"], filename="svm")
-    plot_results(study, params=["ridge_alpha", "ridge_fit_intercept", "ridge_copy_X", "ridge_solver", "ridge_tol"], filename="ridge")
-    plot_results(study, params=["perceptron_penalty", "perceptron_alpha", "perceptron_l1_ratio", "perceptron_tol", "perceptron_eta0", "perceptron_fit_intercept"], filename="perceptron")
-    plot_results(study, params=["rf_n_estimators", "rf_criterion", "rf_oob_score"], filename="rf")
-    plot_results(study, params=["gb_loss", "gb_learning_rate", "gb_criterion", "gb_subsample", "gb_n_estimators"], filename="gb")
-    plot_results(study, params=["mlp_hidden_layer_sizes", "mlp_solver", "mlp_alpha", "mlp_activation", "mlp_tol", "mlp_learning_rate_init", "mlp_power_t", "mlp_momentum", "mlp_epsilon"], filename="mlp")
-    plot_results(study, params=["lr_tol", "lr_fit_intercept", "lr_intercept_scaling", "lr_C", "lr_solver"], filename="lr")
-    plot_results(study, params=["bayes_var_smoothing"], filename="bayes")
+    plot_results(study, plot_slice, params=["rf_n_estimators", "rf_criterion", "rf_oob_score"], filename="rf")
+    plot_results(study, plot_slice, params=["gb_loss", "gb_learning_rate", "gb_criterion", "gb_subsample", "gb_n_estimators"], filename="gb")
