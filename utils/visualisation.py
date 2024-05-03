@@ -6,7 +6,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 from sklearn.manifold import TSNE
-
+from sklearn.preprocessing import StandardScaler
 from utils.analysis import count_labels, measure_class_deviation
 
 # set global visualisation config
@@ -69,10 +69,14 @@ def plot_data_distribution(Y: list, filename: str = "data-distribution.png", sho
         class_labels = [binary_classes[label] for label in label_counts.keys()]
         colors = binary_palette
 
-    _, ax = plt.subplots(figsize=(12, 6))
-    _, _, autotexts = ax.pie(label_counts.values(), labels=class_labels, autopct='%1.1f%%', colors=colors, textprops=dict(color="black"))
+    plt.rcParams.update({'font.size': 14})
+    _, ax = plt.subplots(figsize=(14, 8))
+    _, _, autotexts = ax.pie(label_counts.values(), autopct='%1.1f%%', colors=colors)
+
     for autotext in autotexts:
         autotext.set_color('black')
+
+    plt.legend(class_labels, loc="best", fontsize='large')
     plt.tight_layout()
 
     _save_figure(filename=os.path.join("preprocessing/", filename))
@@ -220,7 +224,6 @@ def plot_confusion_matrix(confusion_matrix, cmap=plt.cm.Blues, show=True, filena
     plt.xticks(rotation=30, ha='right', fontsize=14)
     plt.yticks(rotation=0, fontsize=14)
 
-    plt.title('Confusion Matrix', fontsize=16)
     plt.xlabel('Predicted Label', fontsize=16)
     plt.ylabel('True Label', fontsize=16)
     plt.tight_layout()
@@ -287,6 +290,39 @@ def plot_class_metrics(metrics, filename="class-metrics.png", show=True):
     if show:
         plt.show()
 
+def plot_readout_weights(Wout, show: bool = True):
+    scaler = StandardScaler()
+    Wout_scaled = scaler.fit_transform(Wout)
+    num_classes = Wout_scaled.shape[1]
+
+    # Plotting
+    plt.figure(figsize=(12, 6))
+
+    # Use a violin plot to visualize the distribution of weights for each class
+    sns.violinplot(data=Wout_scaled, inner=None, linewidth=2, palette=categorical_palette)
+
+    # Plot mean and standard deviation as horizontal lines
+    means = np.mean(Wout_scaled, axis=0)
+    stds = np.std(Wout_scaled, axis=0)
+    for i, (mean, std) in enumerate(zip(means, stds)):
+        plt.plot([i - 0.2, i + 0.2], [mean, mean], color='black', linewidth=3)  # Mean line
+        plt.plot([i, i], [mean - std, mean + std], color='black', linewidth=1, linestyle="dotted")  # Standard deviation lines
+
+    # Create custom legend with unique labels
+    plt.plot([], [], color='black', linewidth=3, label="Mean")
+    plt.plot([], [], color='black', linewidth=1, linestyle="dotted", label="Std. Deviation")
+
+    # Set labels and title
+    plt.xlabel('Class')
+    plt.ylabel('Scaled Wout')
+
+    # Set x-axis ticks and labels
+    plt.xticks(np.arange(num_classes), [classes[i] for i in range(num_classes)])
+    plt.legend()
+    plt.tight_layout()
+    if show:
+        plt.show()
+
 def plot_noise(X, noise, noisy_X, show=True):
     sampling_freq = 125
     num_samples = len(X)
@@ -305,8 +341,7 @@ def plot_noise(X, noise, noisy_X, show=True):
     if show:
         plt.show()
 
-
-def plot_tsne_clustering(Y_pred, show=True):
+def plot_tsne_clustering(Y_pred, Y_true, show=True):
     Y_pred_flat = np.array(Y_pred).reshape(len(Y_pred), -1)
     
     # Perform t-SNE embedding
@@ -314,6 +349,7 @@ def plot_tsne_clustering(Y_pred, show=True):
     tsne_embeddings = tsne.fit_transform(Y_pred_flat)
 
     Y_pred = np.array([np.argmax(y_p) for y_p in Y_pred]).reshape(-1, 1)
+    Y_true = np.array([np.argmax(y_t) for y_t in Y_true]).reshape(-1, 1)
 
     ticks = np.unique(Y_pred)
 
@@ -323,10 +359,31 @@ def plot_tsne_clustering(Y_pred, show=True):
         class_names = binary_classes
         colors = ListedColormap(binary_palette)
 
+    # Identify correct and incorrect predictions
+    correct_preds = (Y_pred == Y_true)
+    incorrect_preds = ~correct_preds
+
     plt.figure(figsize=(10, 8))
-    scatter = plt.scatter(x=tsne_embeddings[:, 0], y=tsne_embeddings[:, 1], c=Y_pred, cmap=colors)
-    cbar = plt.colorbar(scatter, ticks=ticks)
-    cbar.set_ticklabels([class_names[t] for t in ticks])
+
+    # Create empty scatter plots with black markers for legend
+    scatter_correct = plt.scatter([], [], marker='o', label='Correct Predictions', color='k')
+    scatter_incorrect = plt.scatter([], [], marker='x', label='Incorrect Predictions', color='k')
+
+    # Plot correct predictions
+    plt.scatter(x=tsne_embeddings[correct_preds[:, 0], 0], 
+                y=tsne_embeddings[correct_preds[:, 0], 1], 
+                c=Y_true[correct_preds[:, 0]], cmap=colors, marker='o')
+
+    # Plot incorrect predictions
+    plt.scatter(x=tsne_embeddings[incorrect_preds[:, 0], 0], 
+                y=tsne_embeddings[incorrect_preds[:, 0], 1], 
+                c=Y_true[incorrect_preds[:, 0]], cmap=colors, marker='x')
+
+    plt.legend(handles=[scatter_correct, scatter_incorrect])
+
+    # Add color bar representing class labels
+    cbar = plt.colorbar(ticks=ticks)
+    cbar.set_ticklabels([class_names[int(t)] for t in ticks])
     cbar.set_label('Class')
 
     plt.xlabel('t-SNE Dimension 1')
