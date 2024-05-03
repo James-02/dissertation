@@ -47,7 +47,7 @@ python3.10 -m venv venv
 venv/bin/pip install -r requirements.txt
 
 # run optimization script from virtual environment
-venv/bin/python optimization.py \
+venv/bin/python optimization/classification.py \
     --trials=10\
     --study_name=reservoir-optimization \
     --job_id=${SLURM_ARRAY_TASK_ID} \
