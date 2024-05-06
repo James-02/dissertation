@@ -1,7 +1,7 @@
 from functools import partial
 import time
 import multiprocessing
-from typing import Tuple, List, Dict, Optional
+from typing import List, Dict, Optional
 
 import numpy as np
 from reservoirpy import Node

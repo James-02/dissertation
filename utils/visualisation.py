@@ -1,4 +1,4 @@
-from typing import List, Union, Dict
+from typing import List, Dict
 import os
 
 import numpy as np
@@ -33,7 +33,7 @@ def _save_figure(filename: str) -> None:
     """
     plt.savefig(os.path.join(RESULTS_DIR, filename), bbox_inches="tight", dpi=DPI)
 
-def plot_states(states: np.ndarray, labels: List[str] = None, title: str = "", xlabel: str = "Time", 
+def plot_states(states: np.ndarray, labels: List[str] = None, xlabel: str = "Time", 
          ylabel: str = "State", filename: str = "states.png", legend: bool = True, show: bool = True) -> None:
     """
     Plot a generic line graph of the evolution of system states over time.
@@ -41,7 +41,6 @@ def plot_states(states: np.ndarray, labels: List[str] = None, title: str = "", x
     Args:
         states (np.ndarray): Time-series states to plot.
         labels (List[str], optional): Labels for the data.
-        title (str, optional): Title of the plot.
         xlabel (str, optional): Label for the x-axis.
         ylabel (str, optional): Label for the y-axis.
         filename (str, optional): Name of the file to save.
@@ -57,7 +56,6 @@ def plot_states(states: np.ndarray, labels: List[str] = None, title: str = "", x
 
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.title(title)
     plt.tight_layout()
 
     if legend:
@@ -99,7 +97,8 @@ def plot_data_distribution(Y: list, filename: str = "data-distribution.png", sho
     if show:
         plt.show()
 
-def plot_dataset_info(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray, Y_test: np.ndarray, show=True, filename="dataset-table.png") -> None:
+def plot_dataset_info(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray, Y_test: np.ndarray, 
+                      show=True, filename="dataset-table.png") -> None:
     """
     Create a table to display information about the dataset.
 
@@ -260,7 +259,8 @@ def plot_average_instance(X: np.ndarray, Y: np.ndarray, show: bool = True, filen
     if show:
         plt.show()
 
-def plot_confusion_matrix(confusion_matrix: np.ndarray, cmap=plt.cm.Blues, show: bool = True, filename: str = "confusion_matrix.png") -> None:
+def plot_confusion_matrix(confusion_matrix: np.ndarray, cmap=plt.cm.Blues, 
+                          show: bool = True, filename: str = "confusion_matrix.png") -> None:
     """
     Plot the confusion matrix.
 
@@ -292,7 +292,8 @@ def plot_confusion_matrix(confusion_matrix: np.ndarray, cmap=plt.cm.Blues, show:
     if show:
         plt.show()
 
-def plot_metrics_across_folds(metrics: List[Dict[str, any]], metric_names: List[str] = ["accuracy", "mse", "rmse", "f1"], show: bool = True, filename: str = "metrics_folds.png") -> None:
+def plot_metrics_across_folds(metrics: List[Dict[str, any]], metric_names: List[str] = ["accuracy", "mse", "rmse", "f1"], 
+                              show: bool = True, filename: str = "metrics_folds.png") -> None:
     """
     Plot the metrics across different folds.
 
@@ -322,7 +323,7 @@ def plot_metrics_across_folds(metrics: List[Dict[str, any]], metric_names: List[
     if show:
         plt.show()
 
-def plot_class_metrics(metrics: Dict[str, Dict[str, float]], filename: str = "class_metrics.png", show: bool = True) -> None:
+def plot_class_metrics(metrics: Dict[str, Dict[str, float]], show: bool = True, filename: str = "class_metrics.png") -> None:
     """
     Plot the metrics for each class.
 
@@ -436,7 +437,7 @@ def plot_noise(X: np.ndarray, noise: np.ndarray, noisy_X: np.ndarray, show: bool
     if show:
         plt.show()
 
-def plot_tsne_clustering(Y_pred: Union[List[np.ndarray], np.ndarray], Y_true: Union[List[np.ndarray], np.ndarray], show: bool = True, filename: str = "clustering.png") -> None:
+def plot_tsne_clustering(Y_pred: np.ndarray, Y_true: np.ndarray, show: bool = True, filename: str = "clustering.png") -> None:
     """
     Plot the t-SNE clustering of predicted and true labels.
 
@@ -497,7 +498,8 @@ def plot_tsne_clustering(Y_pred: Union[List[np.ndarray], np.ndarray], Y_true: Un
     if show:
         plt.show()
 
-def plot_forecast_data(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray, Y_test: np.ndarray, sample: int = 500, show: bool = True, filename: str = "forecast_data.png") -> None:
+def plot_forecast_data(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray, Y_test: np.ndarray, 
+                       sample: int = 500, show: bool = True, filename: str = "forecast_data.png") -> None:
     """
     Plot the forecast data.
 
@@ -520,7 +522,8 @@ def plot_forecast_data(X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndar
     if show:
         plt.show()
 
-def plot_forecast_results(y_pred: np.ndarray, y_test: np.ndarray, sample: int = 500, show: bool = True, filename: str = "forecast_prediction.png") -> None:
+def plot_forecast_results(y_pred: np.ndarray, y_test: np.ndarray, sample: int = 500,
+                          show: bool = True, filename: str = "forecast_prediction.png") -> None:
     """
     Plot the forecast results.
 
