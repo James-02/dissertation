@@ -78,7 +78,7 @@ def plot_results(study: Study, plot_func: Callable, params: Optional[Dict] = Non
     if filename:
         results_dir = "results/optimization/"
         os.makedirs(results_dir, exist_ok=True)
-        plt.savefig(os.path.join(results_dir, f"{filename}.png"), bbox_inches='tight', dpi=800)
+        plt.savefig(os.path.join(results_dir, f"{filename}"), bbox_inches='tight', dpi=800)
 
     plt.show()
     plt.close()
