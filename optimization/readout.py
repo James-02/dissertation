@@ -187,7 +187,7 @@ if __name__ == "__main__":
         "load_file": args.load_file
     }
 
-    # study = research(study, args.trials, objective, processes=args.processes, **params)
+    study = research(study, args.trials, objective, processes=args.processes, **params)
 
     # Run optimization for each classifier
     for classifier_name in [

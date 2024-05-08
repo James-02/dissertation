@@ -106,7 +106,7 @@ if __name__ == "__main__":
     )
 
     # perform objective research
-    # study = research(study, args.trials, objective, args.processes, **params)
+    study = research(study, args.trials, objective, args.processes, **params)
 
     # evaluate study results
     evaluate_study(study.trials_dataframe(), objective_str="F1 Score")
