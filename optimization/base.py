@@ -69,11 +69,11 @@ def plot_results(study: Study, plot_func: Callable, params: Optional[Dict] = Non
 
     Args:
         study (Study): The Optuna study object.
-        plot_func (Callable): The function to generate the plot.
+        plot_func (Callable): The function to generate the plot, must take "study" and "params" as arguments.
         params (Dict, optional): Additional parameters for the plot function. Defaults to None.
         filename (str, optional): The filename to save the plot. Defaults to None.
     """
-    plot_func(study, params)
+    plot_func(study=study, params=params)
 
     if filename:
         results_dir = "results/optimization/"

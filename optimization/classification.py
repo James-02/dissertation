@@ -17,7 +17,6 @@ from utils.logger import Logger
 
 from optimization.base import evaluate_study, research, plot_results
 
-
 def objective(trial, **kwargs):
     X_train, Y_train, X_test, Y_test = load_ecg_data(
         rows=kwargs['instances'],
@@ -35,10 +34,10 @@ def objective(trial, **kwargs):
         warmup=trial.suggest_float("warmup", 0, 100),
         coupling=trial.suggest_float("coupling", 0, 1),
         rc_scaling=trial.suggest_float("rc_scaling", 0, 1),
-        input_connectivity=trial.suggest_float("input_connectivity", 0, 1),
-        rc_connectivity=trial.suggest_float("rc_connectivity", 0, 1),
-        input_scaling=trial.suggest_float("input_scaling", 0, 1),
-        bias_scaling=trial.suggest_float("bias_scaling", 0, 1),
+        input_connectivity=trial.suggest_float("input_connectivity", 0, 2),
+        rc_connectivity=trial.suggest_float("rc_connectivity", 0, 2),
+        input_scaling=trial.suggest_float("input_scaling", 0, 2),
+        bias_scaling=trial.suggest_float("bias_scaling", 0, 2),
         node_kwargs={'delay': kwargs['delay']},
         seed=kwargs['seed'])
 
@@ -106,7 +105,7 @@ if __name__ == "__main__":
     )
 
     # perform objective research
-    # study = research(study, args.trials, objective, args.processes, **params)
+    study = research(study, args.trials, objective, args.processes, **params)
 
     # evaluate study results
     evaluate_study(study.trials_dataframe(), objective_str="F1 Score")

@@ -32,7 +32,7 @@ def objective(trial, **kwargs):
         input_connectivity=trial.suggest_float("input_connectivity", 0, 1),
         rc_connectivity=trial.suggest_float("rc_connectivity", 0, 1),
         input_scaling=trial.suggest_float("input_scaling", 0, 1.0),
-        node_kwargs={'delay': trial.suggest_int("delay", 0, 10)},
+        node_kwargs={'delay': trial.suggest_int("delay", 1, 10)},
         seed=kwargs['seed'])
 
     readout = Ridge(ridge=params['ridge'])

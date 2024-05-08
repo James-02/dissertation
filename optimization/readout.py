@@ -187,12 +187,10 @@ if __name__ == "__main__":
         "load_file": args.load_file
     }
 
-    # study = research(study, args.trials, objective, processes=args.processes, **params)
+    study = research(study, args.trials, objective, processes=args.processes, **params)
 
     # Run optimization for each classifier
-    for classifier_name in [
-        "Ridge", "Bayes", "LR", "Perceptron", "SVM", "MLP", "KNN", "DT", "RF", "GB"
-    ]:
+    for classifier_name in params['classifiers']:
         study_df = study.trials_dataframe()
         classifier_study = study_df[study_df['params_classifier'] == classifier_name]
         evaluate_study(classifier_study, "F1 Score")

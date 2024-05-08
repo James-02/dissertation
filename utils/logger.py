@@ -1,4 +1,5 @@
 import logging
+import sys
 
 class Logger:
     """A wrapper class for the Python logging module with colored output."""
@@ -33,7 +34,7 @@ class Logger:
         # Check if a stream handler already exists with the same characteristics
         stream_handler_exists = any(isinstance(handler, logging.StreamHandler) for handler in self.logger.handlers)
         if not stream_handler_exists:
-            stream_handler = logging.StreamHandler()
+            stream_handler = logging.StreamHandler(sys.stdout)
             stream_handler.setFormatter(self.formatter)
             self.logger.addHandler(stream_handler)
 
