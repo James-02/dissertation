@@ -111,7 +111,7 @@ plot_tsne_clustering(avg_metrics)
   - [reservoirpy](https://github.com/reservoirpy/reservoirpy)
 
 **Optuna**: Optuna is a hyperparameter optimization framework which has been significant in shaping this project.
-  - [Optuna](https://github.com/optuna/optuna)
+- [Optuna](https://github.com/optuna/optuna)
 
 **Genetic Oscillators**: Our approach builds upon the research into coupled genetic oscillators within colonies of bacteria.
 The following papers were instrumental:
@@ -122,3 +122,7 @@ The following papers were instrumental:
 We take our dataset from Kaggle, which was used within the following paper for arrhythmia classification.
   - [Kaggle Heartbeat Dataset](https://www.kaggle.com/datasets/shayanfazeli/heartbeat) by Shayan Fazeli
   - [ECG Heartbeat Classification: A Deep Transferable Representation](http://dx.doi.org/10.1109/ICHI.2018.00092) by Kachuee et al. (2018)
+
+
+# Dissertation
+<iframe src="https://drive.google.com/file/d/1-DE62t1VozBo9oBrw9A5g346j_tCDANF/view?usp=sharing" width="640" height="480"></iframe>
