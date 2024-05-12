@@ -4,6 +4,8 @@ This project focuses on utilizing reservoir computing with genetic oscillators f
 
 We implement a reservoir of genetic oscillators as a `reservoirpy` integrated Node, within the `reservoir` module of this project.
 
+> For a more comprehensive overview, read our associated research paper [here](https://drive.google.com/file/d/1-DE62t1VozBo9oBrw9A5g346j_tCDANF/view?usp=sharing).
+
 # Environment Setup
 To set up a local development environment, follow these steps:
 
@@ -122,7 +124,3 @@ The following papers were instrumental:
 We take our dataset from Kaggle, which was used within the following paper for arrhythmia classification.
   - [Kaggle Heartbeat Dataset](https://www.kaggle.com/datasets/shayanfazeli/heartbeat) by Shayan Fazeli
   - [ECG Heartbeat Classification: A Deep Transferable Representation](http://dx.doi.org/10.1109/ICHI.2018.00092) by Kachuee et al. (2018)
-
-
-# Dissertation
-<iframe src="https://drive.google.com/file/d/1-DE62t1VozBo9oBrw9A5g346j_tCDANF/view?usp=sharing" width="640" height="480"></iframe>
