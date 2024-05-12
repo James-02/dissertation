@@ -90,7 +90,7 @@ class Oscillator:
             np.ndarray: The state of the dde system.
         """
         if self._current_timestep == self.timesteps:
-            self._states = self.initial_states
+            self._states = self._initial_states
             self._current_timestep = 0
 
         self.hypers.update({'input': x})
