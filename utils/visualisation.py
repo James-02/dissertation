@@ -21,7 +21,7 @@ RESULTS_DIR = "results/"
 binary_classes = ['Normal', 'Arrhythmia']
 binary_palette = sns.color_palette("husl", n_colors=len(binary_classes))[::-1]
 
-classes = ['Normal', 'Ventricular', 'Supraventricular', 'Fusion', 'Unknown']
+classes = ['Normal', 'Supraventricular', 'Ventricular', 'Fusion', 'Unknown']
 categorical_palette = sns.color_palette("husl", n_colors=len(classes))[::-1]
 
 def _save_figure(filename: str) -> None:
