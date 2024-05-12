@@ -4,6 +4,8 @@ This project focuses on utilizing reservoir computing with genetic oscillators f
 
 We implement a reservoir of genetic oscillators as a `reservoirpy` integrated Node, within the `reservoir` module of this project.
 
+> For a more comprehensive overview, read our associated research paper [here](https://drive.google.com/file/d/1-DE62t1VozBo9oBrw9A5g346j_tCDANF/view?usp=sharing).
+
 # Environment Setup
 To set up a local development environment, follow these steps:
 
@@ -111,7 +113,7 @@ plot_tsne_clustering(avg_metrics)
   - [reservoirpy](https://github.com/reservoirpy/reservoirpy)
 
 **Optuna**: Optuna is a hyperparameter optimization framework which has been significant in shaping this project.
-  - [Optuna](https://github.com/optuna/optuna)
+- [Optuna](https://github.com/optuna/optuna)
 
 **Genetic Oscillators**: Our approach builds upon the research into coupled genetic oscillators within colonies of bacteria.
 The following papers were instrumental:
