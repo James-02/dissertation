@@ -31,7 +31,9 @@ def _save_figure(filename: str) -> None:
     Args:
         filename (str): The name of the file to save.
     """
-    plt.savefig(os.path.join(RESULTS_DIR, filename), bbox_inches="tight", dpi=DPI)
+    file_path = os.path.join(RESULTS_DIR, filename)
+    os.makedirs(file_path, exist_ok=True)
+    plt.savefig(file_path, bbox_inches="tight", dpi=DPI)
 
 def plot_states(states: np.ndarray, labels: List[str] = None, xlabel: str = "Time", 
          ylabel: str = "State", filename: str = "states.png", legend: bool = True, show: bool = True) -> None:

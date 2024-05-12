@@ -20,6 +20,7 @@ def save_npz(filename: str, **kwargs) -> None:
         filename (str): Name of the file.
         **kwargs: Dictionary containing arrays to save.
     """
+    os.makedirs(filename, exist_ok=True)
     np.savez(filename, **kwargs)
 
 def load_npz(filename: str, allow_pickle: bool = True) -> Optional[Tuple[np.ndarray, np.ndarray]]:
@@ -39,7 +40,7 @@ def load_npz(filename: str, allow_pickle: bool = True) -> Optional[Tuple[np.ndar
         logger.error(f"Error loading data from: {filename}\n{e}")
         return None
 
-def load_mackey_glass(timesteps: int = 2510, test_ratio: float = 0.2, tau: int = 17) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def load_mackey_glass(timesteps: int = 2510, forecast: int = 10, test_ratio: float = 0.2, tau: int = 17) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Load and preprocess Mackey-Glass dataset for reservoir computing.
 
@@ -59,7 +60,7 @@ def load_mackey_glass(timesteps: int = 2510, test_ratio: float = 0.2, tau: int =
     X = 2 * (X - X.min()) / (X.max() - X.min()) - 1
 
     # Prepare forecasting data
-    X, Y = to_forecasting(X, forecast=10)
+    X, Y = to_forecasting(X, forecast=forecast)
     X_train, Y_train = X[:train_size], Y[:train_size]
     X_test, Y_test = X[train_size:], Y[train_size:]
     return X_train, Y_train, X_test, Y_test
