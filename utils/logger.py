@@ -1,5 +1,6 @@
 import logging
 import sys
+import os
 
 class Logger:
     """A wrapper class for the Python logging module with colored output."""
@@ -23,6 +24,9 @@ class Logger:
             datefmt (str): The format for the timestamp in log messages.
             log_file (str): Path to the log file. If None, logging only occurs to console.
         """
+        if log_file:
+            os.makedirs(log_file, exist_ok=True)
+
         self.log_file = log_file
         self.logger = logging.getLogger(name)
         self.logger.setLevel(self.log_levels.get(level))
